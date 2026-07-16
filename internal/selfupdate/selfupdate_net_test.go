@@ -8,9 +8,9 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -36,11 +36,25 @@ func TestFindAsset(t *testing.T) {
 }
 
 func TestNotFoundHint(t *testing.T) {
-	if err := notFoundHint("404 Not Found", ""); !errors.Is(err, ErrNoToken) {
-		t.Errorf("no-token hint should wrap ErrNoToken, got %v", err)
+	// The repo is public: a 404 must read as "release not found", never as a
+	// demand to authenticate.
+	for _, token := range []string{"", "tok"} {
+		err := notFoundHint("404 Not Found", token)
+		if err == nil || !strings.Contains(err.Error(), "release not found") {
+			t.Errorf("notFoundHint(token=%q) = %v, want a release-not-found hint", token, err)
+		}
+		if strings.Contains(err.Error(), "authenticate first") {
+			t.Errorf("notFoundHint(token=%q) must not demand authentication, got %v", token, err)
+		}
 	}
-	if err := notFoundHint("404 Not Found", "tok"); errors.Is(err, ErrNoToken) {
-		t.Error("with a token present, the hint must not blame a missing token")
+}
+
+func TestRateLimitHint(t *testing.T) {
+	if err := rateLimitHint("403 Forbidden", ""); err == nil || !strings.Contains(err.Error(), "GH_TOKEN") {
+		t.Errorf("unauthenticated rate-limit hint should suggest a token, got %v", err)
+	}
+	if err := rateLimitHint("403 Forbidden", "tok"); err == nil || strings.Contains(err.Error(), "GH_TOKEN") {
+		t.Errorf("authenticated 403 should not suggest setting a token, got %v", err)
 	}
 }
 
@@ -148,14 +162,27 @@ func TestFetchReleaseSuccess(t *testing.T) {
 	}
 }
 
-func TestFetchRelease404WithoutTokenWrapsErrNoToken(t *testing.T) {
+func TestFetchRelease404GivesNotFoundHint(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer srv.Close()
 
-	if _, err := fetchRelease(context.Background(), srv.URL, ""); !errors.Is(err, ErrNoToken) {
-		t.Fatalf("404 without token should wrap ErrNoToken, got %v", err)
+	_, err := fetchRelease(context.Background(), srv.URL, "")
+	if err == nil || !strings.Contains(err.Error(), "release not found") {
+		t.Fatalf("404 should give a release-not-found hint, got %v", err)
+	}
+}
+
+func TestFetchReleaseRateLimitedGivesTokenHint(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer srv.Close()
+
+	_, err := fetchRelease(context.Background(), srv.URL, "")
+	if err == nil || !strings.Contains(err.Error(), "GH_TOKEN") {
+		t.Fatalf("unauthenticated 403 should suggest a token, got %v", err)
 	}
 }
 

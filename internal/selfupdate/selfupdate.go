@@ -2,12 +2,13 @@
 // running binary in place. It backs the `tarjan upgrade` command and the
 // "update available" notice `tarjan up` prints on startup.
 //
-// tarjan is distributed from a private repository, so every GitHub request is
-// authenticated with a token resolved from GH_TOKEN / GITHUB_TOKEN, falling
-// back to the gh CLI (`gh auth token`). Release assets are fetched through the
-// API asset endpoint (not the public download URL, which 404s for private
-// repos); GitHub redirects that to a signed CDN URL, and net/http drops the
-// Authorization header on the cross-domain hop so the CDN accepts it.
+// tarjan is distributed from a public repository, so no credential is
+// required. A token resolved from GH_TOKEN / GITHUB_TOKEN (falling back to the
+// gh CLI, `gh auth token`) is still attached when one is available — it raises
+// GitHub's API rate limits, which matters on shared CI runners. Release assets
+// are fetched through the API asset endpoint; GitHub redirects that to a
+// signed CDN URL, and net/http drops the Authorization header on the
+// cross-domain hop so the CDN accepts it.
 package selfupdate
 
 import (
@@ -39,19 +40,17 @@ const Repo = "stevenzg/tarjan"
 // above any real tarjan archive.
 const maxDownload = 64 << 20 // 64 MiB
 
-// ErrNoToken indicates no GitHub credential was found for this private repo.
-var ErrNoToken = fmt.Errorf("no GitHub token found: set GH_TOKEN or GITHUB_TOKEN, or run `gh auth login`")
-
 var (
 	tokenOnce  sync.Once
 	tokenCache string
 )
 
 // authToken resolves a GitHub token from the environment, falling back to the
-// gh CLI. Empty means unauthenticated (which 404s against a private repo). The
-// result is memoized for the process: a single `tarjan upgrade` calls both
-// Latest and Apply, and the credential does not change between them, so the
-// (potentially subprocess-spawning) gh lookup runs at most once.
+// gh CLI. Empty means unauthenticated, which works fine for this public repo
+// but is subject to GitHub's lower anonymous rate limits. The result is
+// memoized for the process: a single `tarjan upgrade` calls both Latest and
+// Apply, and the credential does not change between them, so the (potentially
+// subprocess-spawning) gh lookup runs at most once.
 func authToken(ctx context.Context) string {
 	tokenOnce.Do(func() { tokenCache = resolveToken(ctx) })
 	return tokenCache
@@ -85,13 +84,23 @@ func newRequest(ctx context.Context, url, accept, token string) (*http.Request, 
 	return req, nil
 }
 
-// notFoundHint turns GitHub's opaque 404 (returned for a private repo when the
-// caller can't see it) into actionable guidance.
+// notFoundHint turns GitHub's opaque 404 into actionable guidance. The repo is
+// public, so a 404 means the release/tag does not exist (or, with a token, that
+// the token is scoped oddly enough to hide it).
 func notFoundHint(status string, token string) error {
 	if token == "" {
-		return fmt.Errorf("%s — tarjan is a private repo: %w", status, ErrNoToken)
+		return fmt.Errorf("%s — release not found on %s (does the tag exist?)", status, Repo)
 	}
-	return fmt.Errorf("%s — the token cannot access %s (check its repo scope)", status, Repo)
+	return fmt.Errorf("%s — release not found on %s (does the tag exist / can the token see it?)", status, Repo)
+}
+
+// rateLimitHint explains GitHub's 403/429: unauthenticated requests share a
+// low per-IP rate limit, so the fix is usually to authenticate.
+func rateLimitHint(status string, token string) error {
+	if token == "" {
+		return fmt.Errorf("%s — likely GitHub's anonymous API rate limit; set GH_TOKEN or GITHUB_TOKEN (or run `gh auth login`) and retry", status)
+	}
+	return fmt.Errorf("github returned %s", status)
 }
 
 type ghAsset struct {
@@ -127,6 +136,9 @@ func fetchRelease(ctx context.Context, url, token string) (*ghRelease, error) {
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, notFoundHint(resp.Status, token)
+	}
+	if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusTooManyRequests {
+		return nil, rateLimitHint(resp.Status, token)
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("github returned %s", resp.Status)

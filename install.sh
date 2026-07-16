@@ -4,15 +4,15 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/stevenzg/tarjan/main/install.sh | bash
 #
-# tarjan lives in a private repo, so a GitHub credential is required. The
-# installer uses, in order: the gh CLI (`gh auth login`), then GH_TOKEN /
-# GITHUB_TOKEN. With gh available it fetches releases through gh directly;
-# otherwise it calls the API with the token (this path needs curl).
+# No GitHub credential is required — tarjan is a public repo. The installer
+# uses the gh CLI when it is available and authenticated; otherwise it calls
+# the GitHub API with curl. A token from GH_TOKEN / GITHUB_TOKEN is attached
+# when present (it raises GitHub's API rate limits, useful on shared CI).
 #
 # Environment overrides:
 #   VERSION      install a specific tag (default: latest), e.g. VERSION=v0.5.0
 #   BIN_DIR      install location (default: $HOME/.local/bin)
-#   GH_TOKEN     GitHub token to authenticate with (or GITHUB_TOKEN)
+#   GH_TOKEN     optional GitHub token (or GITHUB_TOKEN) — raises API rate limits
 set -euo pipefail
 
 REPO="stevenzg/tarjan"
@@ -29,30 +29,35 @@ need tar
 
 have() { command -v "$1" >/dev/null 2>&1; }
 
-# --- authentication --------------------------------------------------------
-# Prefer the gh CLI (handles private releases natively); fall back to a token
-# from the environment (or one gh can mint).
+# --- authentication (optional) ----------------------------------------------
+# tarjan is a public repo, so nothing here is required. Prefer the gh CLI when
+# it is installed and authenticated; otherwise drive the GitHub API with curl,
+# attaching a token from the environment when one is set (higher rate limits).
 use_gh=""
 if have gh && gh auth token >/dev/null 2>&1; then
   use_gh=1
 fi
 
 token="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
-if [ -z "$token" ] && [ -n "$use_gh" ]; then
-  token=$(gh auth token 2>/dev/null || true)
-fi
 
-if [ -z "$use_gh" ] && [ -z "$token" ]; then
-  die "tarjan is a private repo — authenticate first: run 'gh auth login', or set GH_TOKEN (or GITHUB_TOKEN)"
-fi
-# Without gh, the token path drives the GitHub API over curl.
+# Without gh, the GitHub API is driven over curl.
 if [ -z "$use_gh" ]; then need curl; fi
+
+# api_curl <curl args...> — curl with the Authorization header attached only
+# when a token is set. The empty-token branch avoids bash-3.2 (macOS) pitfalls
+# with empty arrays under `set -u`.
+api_curl() {
+  if [ -n "$token" ]; then
+    curl -fsSL -H "Authorization: Bearer $token" "$@"
+  else
+    curl -fsSL "$@"
+  fi
+}
 
 # api_json <url> — GET a GitHub API resource as JSON (same-host, no redirect).
 # Only reached on the non-gh path, which already required curl above.
 api_json() {
-  curl -fsSL -H "Authorization: Bearer $token" \
-    -H "Accept: application/vnd.github+json" \
+  api_curl -H "Accept: application/vnd.github+json" \
     -H "X-GitHub-Api-Version: 2022-11-28" "$1"
 }
 
@@ -61,8 +66,7 @@ api_json() {
 # Authorization header on that hop (which the CDN requires), so this path uses
 # curl.
 api_asset() {
-  curl -fsSL -H "Authorization: Bearer $token" \
-    -H "Accept: application/octet-stream" -o "$2" "$1"
+  api_curl -H "Accept: application/octet-stream" -o "$2" "$1"
 }
 
 # asset_url <name> — extract an asset's API url from the release JSON in $rel.
@@ -117,7 +121,7 @@ info "Downloading $asset ($tag)..."
 if [ -n "$use_gh" ]; then
   gh release download "$tag" --repo "$REPO" \
     --pattern "$asset" --pattern "checksums.txt" --dir "$tmp" --clobber \
-    || die "download failed for $tag (does the release exist / does your account have access?)"
+    || die "download failed for $tag (does the release exist?)"
 else
   rel=$(api_json "https://api.github.com/repos/$REPO/releases/tags/$tag") \
     || die "could not fetch release $tag"

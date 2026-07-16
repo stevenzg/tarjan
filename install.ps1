@@ -2,35 +2,36 @@
 #
 #   irm https://raw.githubusercontent.com/stevenzg/tarjan/main/install.ps1 | iex
 #
-# tarjan lives in a private repo, so a GitHub credential is required. The
-# installer uses, in order: GH_TOKEN / GITHUB_TOKEN, then the gh CLI
-# (`gh auth token`). Assets are fetched through the API asset endpoint (the
-# public download URL 404s for private repos).
+# No GitHub credential is required — tarjan is a public repo. A token from
+# GH_TOKEN / GITHUB_TOKEN (or the gh CLI) is attached when present; it raises
+# GitHub's API rate limits, which helps on shared CI runners.
 #
 # Environment overrides:
 #   $env:VERSION      install a specific tag (default: latest), e.g. v0.1.0
 #   $env:BIN_DIR      install location (default: %LOCALAPPDATA%\tarjan\bin)
-#   $env:GH_TOKEN     GitHub token to authenticate with (or GITHUB_TOKEN)
+#   $env:GH_TOKEN     optional GitHub token (or GITHUB_TOKEN) — raises API rate limits
 $ErrorActionPreference = "Stop"
 
 $repo   = "stevenzg/tarjan"
 $binary = "tarjan"
 $binDir = if ($env:BIN_DIR) { $env:BIN_DIR } else { Join-Path $env:LOCALAPPDATA "tarjan\bin" }
 
-# --- authentication --------------------------------------------------------
-# tarjan is a private repo: resolve a token from the environment, falling back
-# to the gh CLI. Without one, every GitHub request 404s.
+# --- authentication (optional) ----------------------------------------------
+# tarjan is a public repo, so no credential is needed. A token from the
+# environment (or the gh CLI) is attached when present — it raises GitHub's
+# API rate limits.
 $token = if ($env:GH_TOKEN) { $env:GH_TOKEN } elseif ($env:GITHUB_TOKEN) { $env:GITHUB_TOKEN } else { "" }
 if (-not $token -and (Get-Command gh -ErrorAction SilentlyContinue)) {
   $token = (gh auth token 2>$null | Out-String).Trim()
 }
-if (-not $token) {
-  throw "tarjan is a private repo — authenticate first: run 'gh auth login', or set `$env:GH_TOKEN (or `$env:GITHUB_TOKEN)"
-}
 $apiHeaders = @{
-  Authorization          = "Bearer $token"
   Accept                 = "application/vnd.github+json"
   "X-GitHub-Api-Version" = "2022-11-28"
+}
+$dlHeaders = @{ Accept = "application/octet-stream" }
+if ($token) {
+  $apiHeaders.Authorization = "Bearer $token"
+  $dlHeaders.Authorization  = "Bearer $token"
 }
 
 # --- detect architecture ---------------------------------------------------
@@ -60,8 +61,6 @@ $assetObj = $rel.assets | Where-Object { $_.name -eq $asset } | Select-Object -F
 $sumsObj  = $rel.assets | Where-Object { $_.name -eq "checksums.txt" } | Select-Object -First 1
 if (-not $assetObj) { throw "release $tag has no asset $asset" }
 if (-not $sumsObj)  { throw "release $tag has no checksums.txt — refusing to install an unverified binary" }
-
-$dlHeaders = @{ Authorization = "Bearer $token"; Accept = "application/octet-stream" }
 
 # --- download & verify -----------------------------------------------------
 $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString())
