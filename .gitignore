@@ -1,5 +1,7 @@
 /bin/
 /dist/
-denv
+/tarjan
 *.exe
 .DS_Store
+# Local commitlint runs (CI installs it ad hoc; nothing is vendored).
+node_modules/

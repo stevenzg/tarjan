@@ -1,0 +1,28 @@
+# EditorConfig — https://editorconfig.org
+# Keeps whitespace consistent across editors; gofmt remains the authority
+# for Go files.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.go]
+indent_style = tab
+
+[Makefile]
+indent_style = tab
+
+[*.{yml,yaml,json,mjs,ts,tsx,css,mdx}]
+indent_style = space
+indent_size = 2
+
+[*.md]
+# Trailing double-spaces are meaningful line breaks in Markdown.
+trim_trailing_whitespace = false
+
+[*.ps1]
+indent_style = space
+indent_size = 2

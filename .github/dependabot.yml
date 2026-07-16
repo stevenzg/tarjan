@@ -1,0 +1,33 @@
+# Dependabot — keep dependencies fresh with low-noise, grouped weekly PRs.
+# PR titles use the `build`/`ci` types so they pass the commitlint gate.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      go-deps:
+        patterns: ["*"]
+    commit-message:
+      prefix: "build(deps)"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "ci(deps)"
+
+  - package-ecosystem: npm
+    directory: /website
+    schedule:
+      interval: weekly
+    groups:
+      website-deps:
+        patterns: ["*"]
+    commit-message:
+      prefix: "build(deps)"

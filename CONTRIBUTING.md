@@ -1,7 +1,8 @@
 # Contributing to tarjan
 
 Thanks for taking the time to contribute! This guide covers everything you need
-to get a change merged.
+to get a change merged. By participating you agree to our
+[Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Development setup
 
