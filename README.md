@@ -1,5 +1,12 @@
 # tarjan
 
+[![CI](https://github.com/stevenzg/tarjan/actions/workflows/ci.yml/badge.svg)](https://github.com/stevenzg/tarjan/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/stevenzg/tarjan?sort=semver)](https://github.com/stevenzg/tarjan/releases/latest)
+[![Go Reference](https://pkg.go.dev/badge/github.com/stevenzg/tarjan.svg)](https://pkg.go.dev/github.com/stevenzg/tarjan)
+[![Go Report Card](https://goreportcard.com/badge/github.com/stevenzg/tarjan)](https://goreportcard.com/report/github.com/stevenzg/tarjan)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-fe5196?logo=conventionalcommits&logoColor=white)](https://www.conventionalcommits.org)
+
 **Spin up a complete local development environment for a whole product — from a single config file.**
 
 Running a real product locally usually means a checklist no one enjoys: clone five repos, start Postgres, install the backend's dependencies, run the API, `npm install` the web app, start it, maybe boot a mobile app, and wire up the handful of cloud services you can't run locally. `tarjan` turns that checklist into one command.
@@ -50,13 +57,10 @@ irm https://raw.githubusercontent.com/stevenzg/tarjan/main/install.ps1 | iex
 The script detects your OS/arch, downloads the matching binary from the
 [latest release](https://github.com/stevenzg/tarjan/releases/latest), verifies
 its checksum, and puts `tarjan` on your `PATH`. Pin a version with
-`VERSION=v0.5.0`.
+`VERSION=v0.1.0`. No GitHub credential is needed; a `GH_TOKEN` /
+`GITHUB_TOKEN` is used when present to raise API rate limits (useful on CI).
 
-Because the repo is private, the installer needs a GitHub credential: the gh CLI
-(`gh auth login`) or a `GH_TOKEN` / `GITHUB_TOKEN` (the API path also needs
-`curl`). Note the `curl … | bash` bootstrap fetches `install.sh` from the
-private repo as well, so obtain the script with `gh` or from a clone if the raw
-URL isn't reachable unauthenticated. Prefer not to pipe to a shell? Download a binary directly from
+Prefer not to pipe to a shell? Download a binary directly from
 the releases page, or build it yourself:
 
 ```bash
@@ -71,8 +75,6 @@ make build        # -> ./bin/tarjan (with version info)
 
 Check your install with `tarjan version`, and update in place with
 `tarjan upgrade` (add `--check` to only see whether a newer release exists).
-Because the repo is private, `upgrade` authenticates with a token from
-`GH_TOKEN` / `GITHUB_TOKEN`, falling back to the gh CLI (`gh auth login`).
 `tarjan up` also prints a one-line notice when a newer release is available
 (at most once a day; silence it with `TARJAN_NO_UPDATE_CHECK=1`).
 
