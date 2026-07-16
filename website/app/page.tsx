@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 
 const GITHUB = "https://github.com/stevenzg/tarjan";
 
@@ -37,9 +38,9 @@ function Nav() {
         <a href="#features" className="hover:text-white">
           Features
         </a>
-        <a href="/docs" className="hover:text-white">
+        <Link href="/docs" className="hover:text-white">
           Docs
-        </a>
+        </Link>
         <a
           href={GITHUB}
           className="rounded-lg border border-white/15 px-3 py-1.5 font-medium text-white hover:bg-white/5"
@@ -83,12 +84,12 @@ function Hero() {
       </div>
 
       <div className="mt-8 flex items-center justify-center gap-3">
-        <a
+        <Link
           href="/docs"
           className="rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-black hover:bg-white/90"
         >
           Get started
-        </a>
+        </Link>
         <a
           href={GITHUB}
           className="rounded-lg border border-white/15 px-5 py-2.5 text-sm font-semibold hover:bg-white/5"
@@ -287,12 +288,12 @@ function CallToAction() {
         .
       </p>
       <div className="mt-7 flex items-center justify-center gap-3">
-        <a
+        <Link
           href="/docs"
           className="rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-black hover:bg-white/90"
         >
           Read the docs
-        </a>
+        </Link>
         <a
           href={`${GITHUB}/releases/latest`}
           className="rounded-lg border border-white/15 px-5 py-2.5 text-sm font-semibold hover:bg-white/5"
