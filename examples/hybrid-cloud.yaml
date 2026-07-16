@@ -1,0 +1,62 @@
+# Hybrid local + cloud: some services run locally, some live in the cloud and
+# are reached over a tunnel or directly. Shows external dependencies, lifecycle
+# hooks, and the "tunnel as a service" pattern.
+name: hybrid
+workspaceRoot: ~/tarjan/hybrid
+
+requires:
+  - name: git
+  - name: gcloud
+    optional: true
+  - name: kubectl
+    optional: true
+
+repos:
+  - name: api
+    url: https://github.com/your-org/api.git
+
+# Global one-shot commands. Run once after cloning, before any service — the
+# place for cloud auth and pulling secrets into the workspace.
+hooks:
+  preUp:
+    - "gcloud auth application-default print-access-token >/dev/null || gcloud auth login"
+    - "gcloud secrets versions access latest --secret=dev-env > .env.cloud"
+  postDown:
+    - "echo 'environment stopped'"
+
+services:
+  # A managed cloud database tarjan does NOT start — it only checks that it is
+  # reachable, then lets local services depend on it. If it's down, you find
+  # out immediately instead of after everything else has booted.
+  - name: cloud-db
+    external: true
+    health:
+      tcp: "db.dev.example.com:5432"
+      timeout: "15s"
+
+  # A tunnel is just a long-running local process that holds a port open. With
+  # restart: always it survives transient drops; the health check waits for the
+  # local end to accept connections before dependents start.
+  - name: redis-tunnel
+    command: "kubectl port-forward svc/redis 6379:6379 -n dev"
+    restart: always
+    health:
+      tcp: "localhost:6379"
+      timeout: "30s"
+
+  # The local backend talks to the cloud DB and the tunnelled Redis as if both
+  # were local.
+  - name: api
+    workdir: api
+    setup: ["npm install"]
+    command: "npm run dev"
+    env:
+      DATABASE_URL: "postgres://app@db.dev.example.com:5432/app"
+      REDIS_URL: "redis://localhost:6379"
+    dependsOn: [cloud-db, redis-tunnel]
+    health: { http: "http://localhost:8080/health" }
+    restart: on-failure
+    watch: { paths: ["src"] }
+
+workspace:
+  vscode: true

@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel superseded runs: a new push to a branch/PR stops the in-flight run for
+# the same ref instead of letting both finish.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: lint & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.25"
+          cache: true
+
+      # golangci-lint (v2, configured in .golangci.yml) already runs govet and
+      # the gofmt/goimports formatters, so separate fmt/vet steps are redundant.
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.5.0
+
+      - name: test + coverage gate
+        run: make cover
+
+  # Run the suite on the other platforms tarjan ships to, so behavioural
+  # regressions in the platform-specific files (upgrade rename-aside, signal
+  # handling, process attrs) are caught — a cross-compile only checks that they
+  # compile.
+  test-cross:
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.25"
+          cache: true
+      - name: test
+        run: go test ./...
+
+  build:
+    name: cross-compile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.25"
+          cache: true
+      # Ensure the binary builds for every target OS/arch we ship.
+      - name: build matrix
+        run: |
+          for t in darwin/arm64 darwin/amd64 linux/amd64 linux/arm64 windows/amd64; do
+            echo "building $t"
+            GOOS=${t%/*} GOARCH=${t#*/} go build ./...
+          done

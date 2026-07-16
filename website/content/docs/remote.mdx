@@ -1,0 +1,86 @@
+---
+title: Remote (SSH) targets
+description: Run some services on another host — a process over ssh, or docker on a remote daemon — with ports tunnelled back to localhost.
+---
+
+Some pieces of a product shouldn't — or can't — run on your laptop: a GPU
+trainer, a heavy build, a service you keep on a shared dev box. Declare a
+**remote** and point a service at it with `remote:`. Everything else — the
+dependency graph, health gating, restart policies, captured logs, `reload` —
+works exactly as it does locally.
+
+```yaml
+remotes:
+  devbox:
+    host: dev.example.com        # or an alias from your ~/.ssh/config
+    user: steven                 # optional
+    identityFile: ~/.ssh/id_ed25519   # optional
+    # workspaceRoot: tarjan/shop # where repos clone on the remote (default)
+    # forward: true              # tunnel ports back to localhost (default)
+
+services:
+  - name: trainer                # (A) a process, run over ssh on the remote
+    remote: devbox
+    workdir: trainer             # resolves under the remote's workspaceRoot
+    setup: ["pip install -r requirements.txt"]
+    command: "python serve.py"
+    health: { http: "http://localhost:9000/health" }
+
+  - name: db                     # (B) a container, on the remote Docker daemon
+    remote: devbox
+    docker: { image: postgres:16, ports: ["5432:5432"] }
+    health: { tcp: "localhost:5432" }
+```
+
+## Two execution modes
+
+Chosen automatically from the service shape:
+
+- **(A) A process runs over `ssh`.** Its `setup` and `command` run on the remote
+  host, in `workspaceRoot/<workdir>`, with the service's `env`/`envFile`
+  exported into the remote shell. tarjan clones the repos those services need
+  onto the remote for you.
+- **(B) A `docker` service runs on the remote's Docker daemon** (via
+  `DOCKER_HOST=ssh://…`). `image` is pulled there; a `build:` context ships from
+  your machine to the remote daemon — no published image required.
+
+## Ports keep working at localhost
+
+For each remote service, tarjan opens an SSH tunnel (`ssh -L`) that forwards its
+published/health ports back to the same `localhost` port. So local dependents'
+`dependsOn`, `localhost` health checks, and your browser all keep hitting
+`localhost` — no config changes. Disable per-remote with `forward: false`.
+
+## Remote fields
+
+| Field | Meaning |
+| --- | --- |
+| `host` | SSH hostname, or an alias from your `~/.ssh/config`. **Required.** |
+| `user` | SSH login user (defaults to your ssh config / current user). |
+| `port` | SSH port (defaults to ssh's own default). |
+| `identityFile` | Private key passed as `ssh -i`. |
+| `workspaceRoot` | Base dir on the remote for clones and workdirs (default `tarjan/<name>`). |
+| `options` | Extra `ssh -o` options, e.g. `StrictHostKeyChecking=accept-new`. |
+| `forward` | Tunnel published/health ports back to localhost (default `true`). |
+
+## How auth works
+
+tarjan shells out to your system `ssh` (exactly as it does for `git`/`docker`),
+so your ssh config, agent, keys and `known_hosts` all apply — **no keys live in
+`tarjan.yaml`**. Use non-interactive auth (agent or a key), since a running
+environment can't answer a password prompt.
+
+## Requirements & limits
+
+- The remote host needs `git` (for process services) and/or `docker` (for
+  remote-daemon services) for whatever it runs.
+- `watch` live-restart is **not** supported for remote services.
+- Clean remote teardown relies on the SSH session ending, so remote commands
+  should honour `SIGTERM`/`SIGHUP`.
+- `tarjan status` tags each remote service with `@<remote>`.
+
+A repo's own `.tarjan` config may declare `remotes:` too, so a composed repo can
+bring its remote target with it. See [`examples/remote.yaml`][ex] for A and B
+together with a dependent local service.
+
+[ex]: https://github.com/stevenzg/tarjan/blob/main/examples/remote.yaml

@@ -1,0 +1,32 @@
+#!/bin/sh
+# denv pre-commit hook — fast, zero-extra-dependency quality gate.
+# Install with:  make hooks   (sets git config core.hooksPath .githooks)
+#
+# Bypass intentionally with:  git commit --no-verify
+set -e
+
+echo "› pre-commit: gofmt"
+unformatted=$(gofmt -l .)
+if [ -n "$unformatted" ]; then
+	echo "✗ these files are not gofmt-ed:"
+	echo "$unformatted" | sed 's/^/    /'
+	echo "  run: gofmt -w ."
+	exit 1
+fi
+
+echo "› pre-commit: go vet"
+go vet ./...
+
+# golangci-lint is the deeper check; run it only if installed so the hook
+# stays dependency-free. CI runs it unconditionally.
+if command -v golangci-lint >/dev/null 2>&1; then
+	echo "› pre-commit: golangci-lint"
+	golangci-lint run ./...
+else
+	echo "  (golangci-lint not installed — skipped locally; CI will enforce it)"
+fi
+
+echo "› pre-commit: go test"
+go test ./...
+
+echo "✓ pre-commit passed"

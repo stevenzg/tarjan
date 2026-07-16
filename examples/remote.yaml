@@ -1,0 +1,68 @@
+# Remote (SSH) targets: run some services on another host while the rest run
+# locally. Two modes, chosen automatically — a process over ssh, and a docker
+# container on the remote's daemon — both with ports tunnelled back to
+# localhost, so local dependents and health checks keep using localhost.
+name: remote-demo
+workspaceRoot: ~/tarjan/remote-demo
+
+requires:
+  - name: git
+  - name: ssh # tarjan shells out to the system ssh (uses your ssh config/agent)
+
+repos:
+  - name: api
+    url: https://github.com/your-org/api.git
+  - name: trainer
+    url: https://github.com/your-org/trainer.git
+
+# Named SSH execution targets. Auth uses your ssh config / agent / keys — no
+# secrets in this file.
+remotes:
+  devbox:
+    host: dev.example.com # or an alias defined in ~/.ssh/config
+    user: steven
+    identityFile: ~/.ssh/id_ed25519
+    # workspaceRoot: tarjan/remote-demo  # where repos clone on the remote (default)
+    # forward: true                      # tunnel ports back to localhost (default)
+    options:
+      - "StrictHostKeyChecking=accept-new"
+
+services:
+  # (B) A container on the remote Docker daemon (DOCKER_HOST=ssh://…). The image
+  # is pulled on the remote; its published port is tunnelled back to localhost.
+  - name: db
+    remote: devbox
+    docker:
+      image: postgres:16
+      ports: ["5432:5432"]
+      env: { POSTGRES_PASSWORD: dev }
+    health:
+      tcp: "localhost:5432"
+
+  # (A) A process run over ssh on the remote. setup + command run in
+  # <workspaceRoot>/trainer on the remote; the health port is tunnelled back.
+  - name: trainer
+    remote: devbox
+    workdir: trainer
+    setup: ["pip install -r requirements.txt"]
+    command: "python serve.py"
+    env: { PORT: "9000" }
+    dependsOn: [db]
+    health: { http: "http://localhost:9000/health" }
+    restart: on-failure
+
+  # A normal LOCAL service that depends on the remote ones — it reaches them at
+  # localhost thanks to the tunnels, with no idea they run on another host.
+  - name: api
+    workdir: api
+    setup: ["npm install"]
+    command: "npm run dev"
+    env:
+      DATABASE_URL: "postgres://postgres:dev@localhost:5432/app"
+      TRAINER_URL: "http://localhost:9000"
+    dependsOn: [db, trainer]
+    health: { http: "http://localhost:8080/health" }
+    watch: { paths: ["src"] }
+
+workspace:
+  vscode: true

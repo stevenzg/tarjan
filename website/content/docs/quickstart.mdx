@@ -1,0 +1,38 @@
+---
+title: Quick start
+description: Install tarjan and bring up your first environment.
+---
+
+## Install
+
+Download a prebuilt binary from the
+[latest release](https://github.com/stevenzg/tarjan/releases/latest) and put
+it on your `PATH`, or build from source:
+
+```bash
+go install github.com/stevenzg/tarjan@latest   # needs Go 1.25+
+```
+
+Verify with `tarjan version`.
+
+## Your first environment
+
+```bash
+tarjan init         # writes a starter tarjan.yaml (or `tarjan init --star` for Starlark)
+$EDITOR tarjan.yaml # point it at your repos and services
+tarjan up           # clone, check tools, generate workspace, start everything
+```
+
+Each `tarjan up` materialises a **fresh, timestamped workspace** under
+`workspaceRoot`, so every run starts from a clean slate.
+
+## Day-to-day
+
+```bash
+tarjan status --watch          # live readiness of every service
+tarjan ui                      # full-screen dashboard
+tarjan logs api -f             # follow a service's logs
+tarjan restart api             # restart one service in place
+tarjan reload                  # reconcile a running env to the edited config
+tarjan exec api -- npm test    # run a command in a service's dir + environment
+```

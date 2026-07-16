@@ -1,0 +1,35 @@
+---
+title: Commands
+description: The tarjan CLI reference.
+---
+
+| Command | What it does |
+| --- | --- |
+| `tarjan init [--star]` | Write a starter `tarjan.yaml` (or `tarjan.star`). |
+| `tarjan up` | Materialise a workspace and start the environment. |
+| `tarjan down` | Stop an environment started elsewhere. |
+| `tarjan status [--watch]` | Show live service status; `--watch` refreshes it. |
+| `tarjan ui` | Full-screen dashboard: logs + restart/reload keys. |
+| `tarjan logs <svc> [-f]` | Print (or follow) a service's captured logs. |
+| `tarjan restart <svc>` | Restart one service in place. |
+| `tarjan reload` | Reconcile a running environment to the edited config. |
+| `tarjan exec <svc> -- cmd` | Run a command in a service's dir + environment. |
+| `tarjan validate` | Parse the config and print the start order. |
+| `tarjan doctor [--install]` | Check required tools; `--install` installs them. |
+| `tarjan workspace [--open]` | (Re)generate the VS Code workspace. |
+| `tarjan version` | Print version information. |
+
+## `tarjan up` flags
+
+- `--only a,b` — start a subset (dependencies pulled in unless `--no-deps`).
+- `--profile p` — activate profile groups.
+- `--install` — install missing/outdated required tools.
+- `--workspace <dir>` — reuse a workspace instead of a fresh one.
+- `--no-start` — prepare the workspace (clone, deps, IDE) but don't start.
+
+## Controlling a running environment
+
+A running `tarjan up` exposes a loopback, token-protected control endpoint
+(recorded in `.tarjan/control.json`). `tarjan restart`, `tarjan reload`, `tarjan status`
+and `tarjan ui` use it to drive the environment from another terminal — without
+interrupting the rest of it.

@@ -1,0 +1,51 @@
+# goreleaser v2 config. Build cross-platform binaries and a GitHub Release on
+# each `vX.Y.Z` tag. Run locally with `goreleaser release --snapshot --clean`.
+version: 2
+
+project_name: tarjan
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: tarjan
+    main: .
+    binary: tarjan
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w
+      - -X github.com/stevenzg/tarjan/cmd.version={{ .Version }}
+      - -X github.com/stevenzg/tarjan/cmd.commit={{ .ShortCommit }}
+      - -X github.com/stevenzg/tarjan/cmd.date={{ .Date }}
+
+archives:
+  - id: tarjan
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: "tarjan_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "Merge pull request"
+
+release:
+  github:
+    owner: stevenzg
+    name: tarjan
+  draft: false
+  prerelease: auto

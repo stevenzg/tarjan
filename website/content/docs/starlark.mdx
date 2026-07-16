@@ -1,0 +1,41 @@
+---
+title: Config in code (Starlark)
+description: Use tarjan.star for loops, conditionals and computed values.
+---
+
+YAML is the default and right for most setups. When a config has **logic** —
+many near-identical services, per-environment conditionals, computed ports/URLs
+— write `tarjan.star` in [Starlark](https://github.com/google/starlark-go) (a
+small, sandboxed Python-like language) instead. It produces the *same* config,
+so every feature works unchanged; the interpreter is pure Go, so tarjan stays a
+single binary with no extra toolchain.
+
+```python
+# N near-identical services become a loop, not N copy-pasted blocks
+services = [
+    service(
+        name = "db",
+        docker = docker(image = "postgres:16", ports = ["5432:5432"]),
+        health = health(tcp = "localhost:5432"),
+    ),
+]
+for i, name in enumerate(["catalog", "orders", "gateway"]):
+    services.append(service(
+        name = name,
+        workdir = name,
+        command = "go run ./cmd/server",
+        env = {"PORT": str(8080 + i)},
+        depends_on = ["db"],
+        restart = "on-failure",
+    ))
+
+tarjan = config(name = "shop", services = services, workspace = workspace(vscode = True))
+```
+
+tarjan auto-detects `tarjan.star` (preferred) or `tarjan.yaml`. The builtins mirror the
+YAML schema: `config`, `repo`, `tool`, `service`, `docker`, `health`, `watch`,
+`hooks`, `remote`, `workspace`. Keyword arguments are snake_case (e.g.
+`depends_on`, `min_version`, `identity_file`). Pass `remotes = {...}` to
+`config(...)` and `remote = "name"` to `service(...)` to run a service on a
+[remote target](/docs/remote). The script must assign its result to a top-level
+`tarjan`. `tarjan reload` works with Starlark too.
