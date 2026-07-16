@@ -112,14 +112,28 @@ func runUp(cmd *cobra.Command, args []string) error {
 	// cloning, once any per-repo .tarjan configs have been merged in.
 	repos := cfg.SelectRepos(upProfiles)
 
-	// 1. Verify required tools (optionally installing missing ones).
+	// 1. Verify required tools (optionally installing missing ones). Scope the
+	// check to the services this run will actually start: a tool tagged with
+	// `services:` is only needed when one of them is selected, so a partial run
+	// (e.g. the cloud-only `tarjan up studio-cloud`) skips the local backend's
+	// docker/dotnet/psql toolchain. The selection is resolved here against the
+	// base config so the check still runs before any clone (fail fast); repos a
+	// clone contributes are handled separately in mergeRepoConfigs. If the
+	// selection can't be resolved yet — an --only name that only a cloned repo's
+	// .tarjan config defines — fall back to checking every required tool.
 	if upAI && !upInstall {
 		ui.Warn("--ai has no effect without --install")
 	}
 	if len(cfg.Requires) > 0 {
-		ui.Info("checking required tools")
-		if err := deps.Check(cfg.Requires, deps.Options{AutoInstall: upInstall, AI: upAI}); err != nil {
-			return err
+		tools := cfg.Requires
+		if sel, selErr := cfg.SelectServices(only, upProfiles, !upNoDeps); selErr == nil {
+			tools = cfg.RequiredTools(sel)
+		}
+		if len(tools) > 0 {
+			ui.Info("checking required tools")
+			if err := deps.Check(tools, deps.Options{AutoInstall: upInstall, AI: upAI}); err != nil {
+				return err
+			}
 		}
 	}
 

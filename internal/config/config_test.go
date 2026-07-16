@@ -285,6 +285,41 @@ func TestSelectServicesOnly(t *testing.T) {
 	}
 }
 
+func toolNames(tools []Tool) []string {
+	out := make([]string, len(tools))
+	for i, t := range tools {
+		out[i] = t.Name
+	}
+	return out
+}
+
+func TestRequiredToolsScopesToSelection(t *testing.T) {
+	c := &Config{Requires: []Tool{
+		{Name: "git"},                          // baseline: always required
+		{Name: "docker", Services: []string{"postgres"}},
+		{Name: "dotnet", Services: []string{"service"}},
+		{Name: "node", Services: []string{"studio", "studio-cloud"}},
+	}}
+
+	// A cloud-only selection needs git (baseline) and node (studio-cloud lists
+	// it), but neither docker nor dotnet — the point of the feature.
+	got := toolNames(c.RequiredTools([]Service{{Name: "cloud-service"}, {Name: "studio-cloud"}}))
+	if !equal(got, []string{"git", "node"}) {
+		t.Fatalf("cloud selection: got %v", got)
+	}
+
+	// The local backend selection pulls docker + dotnet in, but not node.
+	got = toolNames(c.RequiredTools([]Service{{Name: "postgres"}, {Name: "service"}}))
+	if !equal(got, []string{"git", "docker", "dotnet"}) {
+		t.Fatalf("backend selection: got %v", got)
+	}
+
+	// An empty selection yields only baseline tools — no partial run can avoid them.
+	if got := toolNames(c.RequiredTools(nil)); !equal(got, []string{"git"}) {
+		t.Fatalf("empty selection: got %v", got)
+	}
+}
+
 func TestSelectRepos(t *testing.T) {
 	c := &Config{Repos: []Repo{
 		{Name: "shared", URL: "x"},

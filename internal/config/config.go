@@ -153,6 +153,15 @@ type Tool struct {
 	Package PackageSpec `yaml:"package"`
 	// Optional tools only produce a warning when missing, not an error.
 	Optional bool `yaml:"optional"`
+	// Services scopes the tool to the services that actually need it: with none
+	// it is a baseline tool, always checked; with one or more it is checked only
+	// when at least one of those services is in the run's selection. This is what
+	// lets a partial run skip an unrelated toolchain — e.g. a cloud-only
+	// `tarjan up studio-cloud` needs neither docker, dotnet nor psql because none
+	// of the services that list them (postgres, service, migration) are started.
+	// Naming a tool's service anywhere in `services` is enough; the tool is
+	// pulled in whenever any of them is selected (dependencies included).
+	Services []string `yaml:"services"`
 }
 
 // InstallSpec is a tool's install command: either one command for all
@@ -842,6 +851,32 @@ func (c *Config) SelectServices(only, profiles []string, includeDeps bool) ([]Se
 		}
 	}
 	return out, nil
+}
+
+// RequiredTools returns the subset of Requires to verify for a run that will
+// start the given selected services. A tool with no Services is baseline and is
+// always returned; a tool that names services is returned only when at least
+// one of those services is in the selection. Passing a nil/empty selection
+// therefore yields just the baseline tools — the tools no partial run can avoid.
+func (c *Config) RequiredTools(selected []Service) []Tool {
+	sel := make(map[string]bool, len(selected))
+	for _, s := range selected {
+		sel[s.Name] = true
+	}
+	out := make([]Tool, 0, len(c.Requires))
+	for _, t := range c.Requires {
+		if len(t.Services) == 0 {
+			out = append(out, t)
+			continue
+		}
+		for _, name := range t.Services {
+			if sel[name] {
+				out = append(out, t)
+				break
+			}
+		}
+	}
+	return out
 }
 
 // SelectRepos returns the repos to clone for the active profiles.

@@ -121,11 +121,11 @@ func bRepo(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs 
 func bTool(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var name, minVersion, versionCommand, installHint, mise string
 	var optional bool
-	var install, pkg starlark.Value
+	var install, pkg, services starlark.Value
 	if err := starlark.UnpackArgs("tool", args, kwargs,
 		"name", &name, "min_version?", &minVersion, "version_command?", &versionCommand,
 		"install?", &install, "mise?", &mise, "package?", &pkg,
-		"install_hint?", &installHint, "optional?", &optional); err != nil {
+		"install_hint?", &installHint, "optional?", &optional, "services?", &services); err != nil {
 		return nil, err
 	}
 	spec, err := toInstall("install", install)
@@ -136,10 +136,14 @@ func bTool(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs 
 	if err != nil {
 		return nil, err
 	}
+	svc, err := toStrings("services", services)
+	if err != nil {
+		return nil, err
+	}
 	return wrapped{"tool", config.Tool{
 		Name: name, MinVersion: minVersion, VersionCommand: versionCommand,
 		Install: spec, Mise: mise, Package: pkgSpec,
-		InstallHint: installHint, Optional: optional,
+		InstallHint: installHint, Optional: optional, Services: svc,
 	}}, nil
 }
 
