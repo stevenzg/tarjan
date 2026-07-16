@@ -1,0 +1,61 @@
+# Microservices backend: a shared Postgres + Redis and three Go/Node services.
+name: shop-backend
+workspaceRoot: ~/tarjan/shop-backend
+
+requires:
+  - name: git
+  - name: docker
+  - name: go
+    minVersion: "1.22"
+    optional: true
+
+repos:
+  - name: gateway
+    url: https://github.com/your-org/gateway.git
+  - name: orders
+    url: https://github.com/your-org/orders.git
+  - name: catalog
+    url: https://github.com/your-org/catalog.git
+
+services:
+  - name: postgres
+    docker:
+      image: postgres:16
+      ports: ["5432:5432"]
+      env: { POSTGRES_PASSWORD: dev, POSTGRES_DB: shop }
+    health:
+      tcp: "localhost:5432"
+
+  - name: redis
+    docker:
+      image: redis:7
+      ports: ["6379:6379"]
+    health:
+      tcp: "localhost:6379"
+
+  - name: catalog
+    workdir: catalog
+    setup: ["go mod download"]
+    command: "go run ./cmd/server"
+    env: { DATABASE_URL: "postgres://postgres:dev@localhost:5432/shop", PORT: "8081" }
+    dependsOn: [postgres]
+    health: { http: "http://localhost:8081/healthz" }
+
+  - name: orders
+    workdir: orders
+    setup: ["go mod download"]
+    command: "go run ./cmd/server"
+    env: { DATABASE_URL: "postgres://postgres:dev@localhost:5432/shop", REDIS_URL: "localhost:6379", PORT: "8082" }
+    dependsOn: [postgres, redis]
+    health: { http: "http://localhost:8082/healthz" }
+
+  - name: gateway
+    workdir: gateway
+    setup: ["go mod download"]
+    command: "go run ./cmd/server"
+    env: { CATALOG_URL: "http://localhost:8081", ORDERS_URL: "http://localhost:8082", PORT: "8080" }
+    dependsOn: [catalog, orders]
+    health: { http: "http://localhost:8080/healthz" }
+
+workspace:
+  vscode: true

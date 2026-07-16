@@ -1,0 +1,44 @@
+---
+title: Jobs & hybrid cloud
+description: Run-to-completion jobs, external dependencies, tunnels, and hooks.
+---
+
+## Jobs (run-to-completion)
+
+Not everything is a long-running server. A `kind: job` runs once and its
+dependents wait for it to **exit 0** — completion-gated, not health-gated. This
+is the shape for database migrations, seed data, and ETL/ML pipeline steps.
+
+```yaml
+services:
+  - { name: db, docker: { image: postgres:16 }, health: { tcp: "localhost:5432" } }
+  - name: migrate
+    kind: job
+    command: "alembic upgrade head"
+    dependsOn: [db]
+  - name: api
+    command: "uvicorn app:api"
+    dependsOn: [migrate]      # starts only after migrate exits 0
+```
+
+A failed job fails the run instead of starting its dependents. Chain jobs with
+`dependsOn` to express a pipeline.
+
+## Local + cloud (hybrid)
+
+Real products often need things that don't run locally — a managed database, a
+SaaS API, a service that only lives in a dev cluster.
+
+- **External dependencies** (`external: true`): not started, only health-probed
+  for reachability. If the cloud DB is down you find out *before* everything
+  else boots.
+- **Tunnels are just services.** A `kubectl port-forward` or `ssh -L` is a
+  long-running command — model it as a service with `restart: always` and a
+  `health.tcp` on the local port.
+- **Lifecycle hooks** run global one-shot commands around the environment:
+
+```yaml
+hooks:
+  preUp:   ["gcloud auth login", "fetch-secrets > .env.cloud"]
+  postDown: ["echo done"]
+```

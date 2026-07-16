@@ -1,0 +1,28 @@
+---
+title: Introduction
+description: What tarjan is and the problem it solves.
+---
+
+**tarjan** brings up a product's entire local development environment from a single
+config file. Instead of a checklist no one enjoys — clone five repos, start
+Postgres, install the backend's dependencies, run the API, `npm install` the web
+app, start it, maybe boot a mobile app, and wire up the cloud services you can't
+run locally — you run one command:
+
+```bash
+tarjan up
+```
+
+It checks the tools you need, clones every repo into a fresh workspace, generates
+a VS Code workspace so all the repos open in one window, then starts every
+service in dependency order — each gated on a health check — and streams their
+logs. `Ctrl+C` tears the whole thing down cleanly.
+
+Think **Terraform / Ansible / .NET Aspire, but for your *local* dev environment.**
+
+## Why a single binary
+
+tarjan is written in Go and ships as a single static binary — no runtime, no
+`node_modules`, nothing to install just to launch the launcher. It cross-compiles
+to macOS, Linux, and Windows. The *product* you bring up can need .NET, npm,
+Docker, whatever; those get installed lazily, per environment.

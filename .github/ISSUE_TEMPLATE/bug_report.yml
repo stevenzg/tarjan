@@ -1,0 +1,57 @@
+name: Bug report
+description: Report something that isn't working as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug! Please fill in as much as you can — a minimal
+        repro is the single most helpful thing you can provide.
+
+        ⚠️ **Do not report security vulnerabilities here.** See
+        [SECURITY.md](../blob/main/SECURITY.md) for private reporting.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, and what went wrong?
+      placeholder: I ran `tarjan up` and ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: >
+        Include the relevant part of your `tarjan.yaml` / `tarjan.star` and the
+        exact commands. Redact any secrets.
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: tarjan version
+      description: Output of `tarjan version`.
+      placeholder: v0.5.0 (abc1234)
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS / arch
+      placeholder: macOS 15 arm64 / Ubuntu 24.04 amd64 / Windows 11
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste any relevant output. `tarjan logs` may help.
+      render: shell

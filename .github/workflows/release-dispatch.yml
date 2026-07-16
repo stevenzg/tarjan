@@ -1,0 +1,90 @@
+name: Release (manual)
+
+# Cut a release from the Actions tab — no hand-written tag or version needed.
+# Pick a bump (patch/minor/major), or type an explicit version, and this:
+#   1. computes the next vX.Y.Z from the latest tag,
+#   2. tags the current commit and pushes the tag,
+#   3. runs goreleaser to build the cross-platform binaries and publish the
+#      GitHub Release (release notes generated from Conventional Commits).
+#
+# The tag is pushed with the default GITHUB_TOKEN, which by design does NOT
+# trigger the tag-push workflow (release.yml) — so there is no double release.
+# release.yml still handles a tag pushed by hand (e.g. `git push origin vX.Y.Z`).
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Semver bump (ignored when 'version' is set)"
+        type: choice
+        options: [patch, minor, major]
+        default: minor
+      version:
+        description: "Explicit version like v1.2.3 (overrides bump)"
+        type: string
+        default: ""
+
+permissions:
+  contents: write # create the tag, the GitHub Release, and upload assets
+
+# Never let two releases run at once.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # full history + tags for version calc and the changelog
+
+      - name: Compute next version
+        id: ver
+        run: |
+          set -euo pipefail
+          input="${{ inputs.version }}"
+          if [ -n "$input" ]; then
+            next="$input"
+          else
+            latest="$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || true)"
+            latest="${latest:-v0.0.0}"
+            v="${latest#v}"
+            major="${v%%.*}"; rest="${v#*.}"; minor="${rest%%.*}"; patch="${rest##*.}"
+            case "${{ inputs.bump }}" in
+              major) major=$((major + 1)); minor=0; patch=0 ;;
+              minor) minor=$((minor + 1)); patch=0 ;;
+              patch) patch=$((patch + 1)) ;;
+            esac
+            next="v${major}.${minor}.${patch}"
+          fi
+          case "$next" in
+            v[0-9]*.[0-9]*.[0-9]*) : ;;
+            *) echo "::error::version '$next' must look like vX.Y.Z"; exit 1 ;;
+          esac
+          if git rev-parse -q --verify "refs/tags/$next" >/dev/null; then
+            echo "::error::tag $next already exists"; exit 1
+          fi
+          echo "version=$next" >> "$GITHUB_OUTPUT"
+          echo "Releasing $next (from ${latest:-none})"
+
+      - name: Tag the release
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.ver.outputs.version }}" -m "Release ${{ steps.ver.outputs.version }}"
+          git push origin "${{ steps.ver.outputs.version }}"
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.25"
+          cache: true
+
+      - uses: goreleaser/goreleaser-action@v7
+        with:
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,47 @@
+# golangci-lint v2 configuration. See https://golangci-lint.run
+version: "2"
+
+run:
+  timeout: 3m
+
+linters:
+  # Default set (errcheck, govet, ineffassign, staticcheck, unused) plus a few
+  # high-signal extras. Kept deliberately lean to avoid noise.
+  enable:
+    - misspell    # common spelling mistakes in comments/strings
+    - revive      # style/lint rules (golint successor)
+    - unconvert   # redundant type conversions
+    - bodyclose   # response/body left unclosed
+    - errorlint   # correct error wrapping/comparison
+    - gosec       # security guardrails (weak crypto, TLS, rand — see excludes)
+  settings:
+    gosec:
+      # tarjan is a process orchestrator: it shells out to git/docker/ssh and
+      # reads/writes user config, env and log files by design, so the rules that
+      # flag exactly those patterns are pure noise here. Excluding them keeps the
+      # guardrails that DO matter for this security-sensitive tool — weak crypto
+      # (G401/G501/G502), TLS config (G402), and non-crypto rand (G404) around
+      # the auth token, release checksums and downloads.
+      excludes:
+        - G101  # "hardcoded credentials" — false positive on the token header NAME
+        - G204  # subprocess with variable args — the whole point of the tool
+        - G301  # dir perms 0755 — intentional for workspace/log dirs
+        - G302  # file perms 0644 — intentional for log/marker files
+        - G304  # file inclusion via variable — reading configured config/env paths
+        - G306  # WriteFile perms 0644 — intentional for logs/markers
+    errcheck:
+      # Writes to stdout/stderr in the ui package: failures are not actionable.
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+    revive:
+      rules:
+        # cobra's RunE signature is fixed; an unused cmd/args is idiomatic.
+        - name: unused-parameter
+          disabled: true
+
+formatters:
+  enable:
+    - gofmt
+    - goimports

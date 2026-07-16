@@ -1,0 +1,17 @@
+@import "tailwindcss";
+@import "fumadocs-ui/css/neutral.css";
+@import "fumadocs-ui/css/preset.css";
+
+/* Let Tailwind v4 see the classes used inside Fumadocs UI. */
+@source "../node_modules/fumadocs-ui/dist/**/*.js";
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Landing page (outside the docs) uses an explicit dark canvas. */
+body {
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
+}

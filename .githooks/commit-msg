@@ -1,0 +1,40 @@
+#!/bin/sh
+# commit-msg hook — enforce Conventional Commits with zero dependencies.
+# https://www.conventionalcommits.org  ·  bypass with: git commit --no-verify
+#
+# This is the fast local mirror of the rules CI enforces with commitlint
+# (commitlint.config.mjs + .github/workflows/commitlint.yml) — keep the two
+# in sync. Enabled (with the pre-commit hook) by: make hooks
+set -e
+
+msg_file="$1"
+# Subject = first non-comment, non-blank line.
+subject=$(grep -v '^#' "$msg_file" | sed '/^[[:space:]]*$/d' | head -n1)
+
+# Allow git's own machinery (merges, reverts, fixup/squash).
+case "$subject" in
+	"Merge "* | "Revert "* | "fixup! "* | "squash! "*) exit 0 ;;
+esac
+
+types='feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert'
+pattern="^(${types})(\([a-z0-9 ._/-]+\))?!?: .+"
+
+if printf '%s' "$subject" | grep -Eq "$pattern"; then
+	len=$(printf '%s' "$subject" | wc -c)
+	if [ "$len" -gt 100 ]; then
+		echo "✗ commit subject too long (${len} > 100 chars): $subject" >&2
+		exit 1
+	fi
+	exit 0
+fi
+
+cat >&2 <<EOF
+✗ commit message must follow Conventional Commits:
+    <type>[optional scope][!]: <description>
+  types: $(echo "$types" | tr '|' ' ')
+  e.g.   feat(runner): add live reload
+         fix: stop external service on shutdown
+  got:   "$subject"
+  (bypass with: git commit --no-verify)
+EOF
+exit 1

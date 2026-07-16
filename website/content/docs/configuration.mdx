@@ -1,0 +1,80 @@
+---
+title: Configuration
+description: The tarjan.yaml schema — repos, tools, services.
+---
+
+```yaml
+name: myproduct
+workspaceRoot: ~/tarjan/myproduct        # each `up` creates a fresh dir under here
+
+requires:                              # tools that must exist before starting
+  - name: git
+  - name: docker
+    optional: true                     # warn instead of fail if missing
+  - name: node
+    minVersion: "20"
+    install: { darwin: "brew install node" }   # run only with --install
+
+repos:                                 # cloned into the workspace
+  - name: api
+    url: https://github.com/your-org/api.git
+    branch: main
+
+services:                              # started in dependency order
+  - name: postgres
+    docker: { image: postgres:16, ports: ["5432:5432"], env: { POSTGRES_PASSWORD: dev } }
+    health: { tcp: "localhost:5432" }
+
+  - name: api
+    workdir: api
+    setup: ["npm install"]             # one-shot, runs once per workspace
+    setupCheck: "test -d node_modules" # setup counts as done only if this passes
+    command: "npm run dev"
+    env: { DATABASE_URL: "postgres://postgres:dev@localhost:5432/postgres" }
+    dependsOn: [postgres]
+    health: { http: "http://localhost:8080/health" }
+    restart: on-failure
+    watch: { paths: ["src"] }
+
+workspace: { vscode: true }
+```
+
+## Service fields
+
+| Field | Meaning |
+| --- | --- |
+| `name` | Unique service name. |
+| `kind` | `service` (default) or `job` (run-to-completion). |
+| `workdir` | Working directory inside the workspace (usually a cloned repo). |
+| `setup` | One-shot commands run once per workspace before first start. |
+| `setupCheck` | Command that verifies `setup` succeeded; setup is recorded as done only when it exits 0, and a later run re-checks and re-runs `setup` if it now fails. Guards against a setup command that exits 0 without producing what it should (e.g. `npm install` printing "up to date" while a downloaded binary is missing). |
+| `command` | Long-running command (ignored when `docker` is set). |
+| `docker` | Run as a container: `image`, `ports`, `env`, `volumes`, `args`. |
+| `external` | A cloud/remote dependency tarjan only health-probes. |
+| `env` / `envFile` | Inline variables / `.env` files (files load before inline). |
+| `dependsOn` | Services that must be healthy (or, for jobs, complete) first. |
+| `health` | Readiness probe: `tcp`, `http`, or `command` (+ `timeout`, `interval`). |
+| `restart` | Crash policy: `no` (default), `on-failure`, or `always`. |
+| `maxRestarts` | Cap on automatic restarts (default 5; `0` = unlimited). |
+| `watch` | Live-restart on file change: `paths` + `debounce`. |
+| `optional` | Failure → warning instead of aborting the whole `up`. |
+| `profiles` | Gate the service to specific `--profile` groups. |
+| `remote` | Run on a named SSH target from `remotes:` — see [Remote targets](/docs/remote). |
+
+## Profiles & selective start
+
+A service or repo with **no** `profiles` is always included; one **with**
+profiles is included only when a matching profile is active (`--profile`), it's
+named in `--only`, or it's pulled in as a dependency.
+
+```bash
+tarjan up                     # always-on services only
+tarjan up --profile frontend  # + the frontend profile
+tarjan up --only web          # web + its dependencies
+```
+
+## Env files & secrets
+
+A global `envFile` applies to every service; a per-service `envFile` applies to
+one. Precedence, lowest to highest: process env, global env files, service env
+files, inline `env`. Commit a `.env.example` and git-ignore the real `.env*`.

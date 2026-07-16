@@ -1,0 +1,89 @@
+# Backend + web frontend + mobile app: a full product brought up locally.
+#
+# Profiles let one config serve every shape of work:
+#   tarjan up                     -> postgres + api      (backend core, always on)
+#   tarjan up --profile frontend  -> + web
+#   tarjan up --profile full      -> + web + mobile
+#   tarjan up --only api          -> just api (+ its dep postgres)
+name: acme
+workspaceRoot: ~/tarjan/acme
+
+requires:
+  - name: git
+  - name: docker
+  - name: dotnet
+    minVersion: "8.0"
+    installHint: "https://dotnet.microsoft.com/download"
+  - name: node
+    minVersion: "20"
+    install:                 # `tarjan doctor --install` runs the matching one
+      darwin: "brew install node"
+      linux: "sudo apt-get update && sudo apt-get install -y nodejs npm"
+    installHint: "https://nodejs.org"
+
+repos:
+  - name: api
+    url: https://github.com/acme/api.git
+    branch: develop
+  - name: web
+    url: https://github.com/acme/web.git
+    profiles: [frontend, full]   # cloned only when these profiles are active
+  - name: mobile
+    url: https://github.com/acme/mobile.git
+    profiles: [mobile, full]
+
+services:
+  # Local infrastructure
+  - name: postgres
+    docker:
+      image: postgres:16
+      ports: ["5432:5432"]
+      env: { POSTGRES_PASSWORD: dev, POSTGRES_DB: acme }
+    health: { tcp: "localhost:5432" }
+
+  # Database migration as a run-to-completion job: dependents wait for it to
+  # exit 0, not for a health check. Runs after postgres is up, before the api.
+  - name: migrate
+    kind: job
+    workdir: api
+    command: "dotnet ef database update"
+    env:
+      ConnectionStrings__Default: "Host=localhost;Database=acme;Username=postgres;Password=dev"
+    dependsOn: [postgres]
+
+  # .NET backend
+  - name: api
+    workdir: api
+    setup:
+      - "dotnet restore"
+    command: "dotnet run --project src/Api"
+    env:
+      ConnectionStrings__Default: "Host=localhost;Database=acme;Username=postgres;Password=dev"
+      ASPNETCORE_URLS: "http://localhost:5080"
+    dependsOn: [migrate]
+    health: { http: "http://localhost:5080/health", timeout: "120s" }
+
+  # Web frontend
+  - name: web
+    workdir: web
+    setup: ["npm install"]
+    command: "npm run dev"
+    env: { VITE_API_URL: "http://localhost:5080" }
+    dependsOn: [api]
+    health: { http: "http://localhost:5173" }
+    restart: on-failure
+    watch: { paths: ["src"] }
+    profiles: [frontend, full]   # only with --profile frontend|full
+
+  # React Native / Expo mobile app — optional so `up` still succeeds without it
+  - name: mobile
+    workdir: mobile
+    setup: ["npm install"]
+    command: "npm run start"
+    env: { EXPO_PUBLIC_API_URL: "http://localhost:5080" }
+    dependsOn: [api]
+    optional: true
+    profiles: [mobile, full]     # only with --profile mobile|full
+
+workspace:
+  vscode: true
