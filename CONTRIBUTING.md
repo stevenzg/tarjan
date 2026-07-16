@@ -57,7 +57,17 @@ on every commit. Bypass them for a work-in-progress commit with
 ## Commit messages
 
 This repo enforces [Conventional Commits](https://www.conventionalcommits.org)
-via the `commit-msg` hook (and reviewers). The subject must look like:
+— every commit, from the very first one. Enforcement happens in three places:
+
+- **CI (blocking):** the `Commitlint` workflow lints every commit on a PR
+  *and the PR title* (a squash merge uses the title as the commit subject)
+  against [`commitlint.config.mjs`](commitlint.config.mjs).
+- **Locally:** the `commit-msg` hook (`make hooks`) checks the same rules with
+  zero dependencies, so you find out at commit time instead of in CI.
+- **Release notes:** goreleaser generates them from these messages, so a
+  malformed subject would leak straight into the changelog.
+
+The subject must look like:
 
 ```
 <type>[optional scope][!]: <description>

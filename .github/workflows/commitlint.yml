@@ -1,0 +1,47 @@
+name: Commitlint
+
+# Every commit on a PR — and the PR title, which becomes the commit subject on
+# a squash merge — must follow Conventional Commits (commitlint.config.mjs).
+# Release notes are generated from these messages (.goreleaser.yaml), so this
+# gate keeps them machine-readable from the very first commit.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: commitlint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  commitlint:
+    name: conventional commits
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # full history so base..head is resolvable
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Install commitlint
+        run: npm install --no-save @commitlint/cli@19 @commitlint/config-conventional@19
+
+      - name: Lint PR commits
+        run: >
+          npx commitlint
+          --from "${{ github.event.pull_request.base.sha }}"
+          --to "${{ github.event.pull_request.head.sha }}"
+          --verbose
+
+      # The PR title is what lands on main under squash merge, so it must be a
+      # valid Conventional Commit subject too. Passed via env to avoid shell
+      # injection from crafted titles.
+      - name: Lint PR title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: printf '%s\n' "$PR_TITLE" | npx commitlint --verbose

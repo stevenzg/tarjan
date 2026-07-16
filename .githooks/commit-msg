@@ -2,7 +2,9 @@
 # commit-msg hook — enforce Conventional Commits with zero dependencies.
 # https://www.conventionalcommits.org  ·  bypass with: git commit --no-verify
 #
-# Enabled (with the pre-commit hook) by: make hooks
+# This is the fast local mirror of the rules CI enforces with commitlint
+# (commitlint.config.mjs + .github/workflows/commitlint.yml) — keep the two
+# in sync. Enabled (with the pre-commit hook) by: make hooks
 set -e
 
 msg_file="$1"

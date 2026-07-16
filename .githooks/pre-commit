@@ -1,5 +1,5 @@
 #!/bin/sh
-# denv pre-commit hook — fast, zero-extra-dependency quality gate.
+# tarjan pre-commit hook — fast, zero-extra-dependency quality gate.
 # Install with:  make hooks   (sets git config core.hooksPath .githooks)
 #
 # Bypass intentionally with:  git commit --no-verify
