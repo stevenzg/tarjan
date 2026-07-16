@@ -13,7 +13,7 @@ LDFLAGS := -s -w \
 # Minimum total statement coverage enforced by `make cover` (override on the CLI).
 MIN_COVERAGE ?= 66
 
-.PHONY: build install test vet fmt fmt-check lint check cover hooks clean dist snapshot
+.PHONY: build install test vet fmt fmt-check lint check cover hooks clean dist snapshot licenses
 
 build:
 	go build -ldflags "$(LDFLAGS)" -o bin/$(BINARY) .
@@ -52,8 +52,13 @@ hooks:
 	git config core.hooksPath .githooks
 	@echo "pre-commit hook enabled (bypass with: git commit --no-verify)"
 
+# Collect third-party license texts for everything linked into the binary
+# (bundled into release archives by goreleaser).
+licenses:
+	./scripts/third-party-licenses.sh
+
 clean:
-	rm -rf bin dist
+	rm -rf bin dist third_party_licenses
 
 # Build local release artifacts. Delegates to goreleaser so the produced
 # archives (names, checksums.txt, platforms) match what a real release ships —

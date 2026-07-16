@@ -7,6 +7,9 @@ project_name: tarjan
 before:
   hooks:
     - go mod tidy
+    # Collect the license text of every module linked into the binaries so the
+    # archives ship the attributions their licenses require.
+    - ./scripts/third-party-licenses.sh
 
 builds:
   - id: tarjan
@@ -29,6 +32,12 @@ archives:
       - goos: windows
         formats: [zip]
     name_template: "tarjan_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    # Setting `files` replaces goreleaser's defaults, so LICENSE/README are
+    # listed explicitly alongside the generated third-party notices.
+    files:
+      - LICENSE
+      - README.md
+      - third_party_licenses/**/*
 
 checksum:
   name_template: checksums.txt
