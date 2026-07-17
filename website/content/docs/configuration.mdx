@@ -5,15 +5,18 @@ description: The tarjan.yaml schema — repos, tools, services.
 
 ```yaml
 name: myproduct
-workspaceRoot: ~/tarjan/myproduct        # each `up` creates a fresh dir under here
+version: dev                           # named, reusable workspace (omit for a fresh one per run)
+workspaceRoot: ~/tarjan/myproduct      # workspaces are materialised under here
 
 requires:                              # tools that must exist before starting
-  - name: git
+  - name: git                          # no `services:` → baseline, always checked
   - name: docker
     optional: true                     # warn instead of fail if missing
+    services: [postgres]               # checked only when postgres is in the selection
   - name: node
     minVersion: "20"
-    install: { darwin: "brew install node" }   # run only with --install
+    mise: node@20                      # versioned runtime via mise (with --install)
+    services: [api]
 
 repos:                                 # cloned into the workspace
   - name: api
@@ -38,6 +41,41 @@ services:                              # started in dependency order
 
 workspace: { vscode: true }
 ```
+
+## Workspaces & versions
+
+With no `version:`, each `tarjan up` materialises a **fresh, timestamped
+workspace** under `workspaceRoot` (e.g. `~/tarjan/myproduct/20260628-150405/`)
+— every run starts from a clean slate and old runs stay around for reference.
+
+Set a top-level `version:` (or pass `tarjan up --version <label>`, which
+overrides it per run) to use a **named, reusable workspace** at
+`<workspaceRoot>/<name>-<version>` instead. Repeated `up` runs of the same
+version reuse the directory: already-cloned repos and finished `setup` steps
+are skipped, so it comes back fast. `tarjan pull <version>` updates that
+workspace's checkouts in place, and `--workspace <dir>` still overrides
+everything with an explicit path.
+
+Different versions give you **parallel environments side by side** — e.g.
+`--version feat-a` and `--version feat-b` are independent checkouts you can keep
+on different branches. They coexist on disk, but only one can **run** at a
+time: services publish fixed host ports shared by every workspace, so a second
+running environment collides with the first ("address already in use"). Stop
+one (`Ctrl+C` or `tarjan down`) before starting the other — reuse makes the
+switch quick.
+
+## Required tools
+
+Each `requires` entry declares a tool: `name` (looked up on `PATH`),
+`minVersion`, `versionCommand`, `installHint`, `optional`, and an install
+provider — `mise` (versioned runtimes), `package` (OS package managers), or a
+bespoke `install` command — run only with `--install`.
+
+A tool may also list the `services` that need it. A tool with no `services` is
+a **baseline**, checked on every run; one that names services is checked only
+when at least one of them is in the run's selection — so a partial
+`tarjan up web` skips toolchains it won't use, and `tarjan doctor <service>`
+reports just what that service needs.
 
 ## Service fields
 

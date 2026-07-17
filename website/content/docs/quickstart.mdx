@@ -23,8 +23,12 @@ $EDITOR tarjan.yaml # point it at your repos and services
 tarjan up           # clone, check tools, generate workspace, start everything
 ```
 
-Each `tarjan up` materialises a **fresh, timestamped workspace** under
-`workspaceRoot`, so every run starts from a clean slate.
+With no `version:` in the config, each `tarjan up` materialises a **fresh,
+timestamped workspace** under `workspaceRoot`, so every run starts from a clean
+slate. Set a top-level `version:` (or pass `--version <label>`) to get a
+**named, reusable workspace** instead — repeated runs skip the clones and
+`setup` steps already done, so it comes back fast. See
+[Workspaces & versions](/docs/configuration#workspaces--versions).
 
 ## Day-to-day
 
@@ -35,4 +39,5 @@ tarjan logs api -f             # follow a service's logs
 tarjan restart api             # restart one service in place
 tarjan reload                  # reconcile a running env to the edited config
 tarjan exec api -- npm test    # run a command in a service's dir + environment
+tarjan pull                    # fast-forward every cloned repo in the workspace
 ```

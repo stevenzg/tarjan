@@ -92,6 +92,7 @@ Other commands:
 tarjan upgrade                # update tarjan to the latest release (--check to only look)
 tarjan doctor                 # check required tools are installed & up to date
 tarjan doctor --install       # ...and install the missing ones (opt-in)
+tarjan doctor api             # ...checking only the toolchain the api service needs
 tarjan validate               # parse the config and print the service start order
 tarjan pull                   # git pull every cloned repo in the current workspace
 tarjan pull 0.1.0             # ...in the named "<name>-0.1.0" workspace
@@ -119,6 +120,14 @@ tarjan up --only web --no-deps  # exactly one service, skip dependency expansion
 By default each `tarjan up` materialises a **fresh, timestamped workspace** under `workspaceRoot` (e.g. `~/tarjan/myproduct/20260628-150405/`), so every run starts from a clean slate and old runs stay around for reference.
 
 Set a top-level `version:` (or pass `tarjan up --version <label>`) to instead use a **named, reusable workspace** at `<workspaceRoot>/<name>-<version>` (e.g. `~/tarjan/myproduct/myproduct-0.1.0/`). Repeated `up` runs of the same version reuse that directory — already-cloned repos and finished `setup` steps are skipped — so it comes back up fast. Use different versions (`--version pr-42`) to keep parallel environments side by side. `--workspace ./dir` still overrides with an explicit path.
+
+Parallel workspaces **coexist on disk, but only one environment runs at a time**: services publish fixed host ports (`5432:5432`, `http://localhost:8080`, …) that every workspace shares, so bringing up a second environment collides with the first ("address already in use" — the already-running check only guards re-`up` of the *same* workspace). Switch by stopping one and starting the other; because clones and setup are reused, the swap is quick:
+
+```bash
+tarjan up --version feat-a    # work on feature A
+# ...later: Ctrl+C (or `tarjan down`), then
+tarjan up --version feat-b    # feature B — its workspace comes back fast
+```
 
 ---
 
@@ -191,6 +200,7 @@ workspace:
 | `install` | Bespoke install command (escape hatch) — a single string, or a per-OS map (`darwin`/`linux`/`windows`). |
 | `installHint` | Free-text pointer shown when the tool is missing and no provider above is set. |
 | `optional` | Missing → warning instead of error. |
+| `services` | Scope the tool to the services that need it: it is checked only when one of them is in the run's selection. A tool with no `services` is a **baseline** — always checked. |
 
 **Declare *what*, not *how-per-OS*.** `mise` handles versioned language runtimes
 (dotnet, node, python, go, java, flutter…) and `package` handles OS client tools
@@ -199,6 +209,13 @@ and covers new languages/clients you add later without hand-writing per-OS
 commands. When several are set on one tool, the most explicit wins:
 **`install` > `mise` > `package`** (use `install` to override a provider for one
 awkward tool).
+
+**Scoped to the selection.** A partial run only demands the toolchains it will
+actually use: a tool tagged `services: [postgres]` is skipped when no selected
+service (dependencies included) is `postgres`. So `tarjan up web` doesn't fail
+on a missing backend toolchain, and `tarjan doctor <service>` answers "what does
+*this* service need on my machine?" before you start it. Untagged tools are the
+baseline every run checks.
 
 **Per-repo versions.** A repo that pins its own tool versions — a `mise.toml` or
 `.tool-versions` in its root — owns them: before a service's setup/command runs,
