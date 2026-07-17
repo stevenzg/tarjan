@@ -5,11 +5,15 @@
 /* Let Tailwind v4 see the classes used inside Fumadocs UI. */
 @source "../node_modules/fumadocs-ui/dist/**/*.js";
 
+/* Drive `dark:` utilities from the theme class next-themes sets on <html>,
+   not from prefers-color-scheme — so the landing page follows the docs'
+   theme toggle. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 html {
   scroll-behavior: smooth;
 }
 
-/* Landing page (outside the docs) uses an explicit dark canvas. */
 body {
   font-family:
     ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica,

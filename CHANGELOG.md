@@ -11,6 +11,12 @@ development history from before the open-sourcing is not carried over.
 
 ### Added
 
+- Service-scoped tool checks: a `requires` tool may list the `services:` that
+  need it. Untagged tools stay baseline (always checked); a tagged tool is
+  checked only when one of its services is in the run's selection, so a partial
+  `tarjan up <service>` skips toolchains it won't use. `tarjan doctor
+  <service...>` scopes the same way, and the Starlark `tool()` builtin gains a
+  `services` argument.
 - Initial public release of tarjan: spin up a complete local development
   environment for a whole product from a single config file
   (`tarjan.yaml` / `tarjan.star`).

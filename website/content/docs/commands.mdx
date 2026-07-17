@@ -6,7 +6,7 @@ description: The tarjan CLI reference.
 | Command | What it does |
 | --- | --- |
 | `tarjan init [--star]` | Write a starter `tarjan.yaml` (or `tarjan.star`). |
-| `tarjan up` | Materialise a workspace and start the environment. |
+| `tarjan up [service...]` | Materialise a workspace and start the environment (or just the named services + their dependencies). |
 | `tarjan down` | Stop an environment started elsewhere. |
 | `tarjan status [--watch]` | Show live service status; `--watch` refreshes it. |
 | `tarjan ui` | Full-screen dashboard: logs + restart/reload keys. |
@@ -14,17 +14,22 @@ description: The tarjan CLI reference.
 | `tarjan restart <svc>` | Restart one service in place. |
 | `tarjan reload` | Reconcile a running environment to the edited config. |
 | `tarjan exec <svc> -- cmd` | Run a command in a service's dir + environment. |
-| `tarjan validate` | Parse the config and print the start order. |
-| `tarjan doctor [--install]` | Check required tools; `--install` installs them. |
+| `tarjan pull [version]` | Fast-forward every cloned repo in a workspace (the most recent one, or the named `<name>-<version>`). |
+| `tarjan validate [service...]` | Parse the config and print the start order (optionally for a selection). |
+| `tarjan doctor [service...]` | Check required tools — all of them, or just what the named services need; `--install` installs them. |
 | `tarjan workspace [--open]` | (Re)generate the VS Code workspace. |
+| `tarjan upgrade [--check]` | Self-update tarjan to the latest release (`--check` only reports). |
 | `tarjan version` | Print version information. |
 
 ## `tarjan up` flags
 
+- `[service...]` — positional service names, same as `--only` (the two combine).
 - `--only a,b` — start a subset (dependencies pulled in unless `--no-deps`).
 - `--profile p` — activate profile groups.
-- `--install` — install missing/outdated required tools.
-- `--workspace <dir>` — reuse a workspace instead of a fresh one.
+- `--install` — install missing/outdated required tools via their provider (`install`/`mise`/`package`).
+- `--ai` — with `--install`, let an agent CLI install what the providers can't.
+- `--version <label>` — use the named, reusable workspace `<name>-<label>` (defaults to the config's `version:`; see [Workspaces & versions](/docs/configuration#workspaces--versions)).
+- `--workspace <dir>` — reuse an explicit workspace directory.
 - `--no-start` — prepare the workspace (clone, deps, IDE) but don't start.
 
 ## Controlling a running environment
