@@ -1,0 +1,36 @@
+name: Site CI
+
+# Build the website on pull requests that touch it, so a broken build is
+# caught before merge — pages.yml only builds on push to main, which would
+# otherwise be the first time a bad website change fails.
+on:
+  pull_request:
+    paths: ["website/**", ".github/workflows/site-ci.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: site-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: website build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - run: npm ci
+      # Same base path as the pages.yml deploy build, so the two can't drift.
+      - name: Build static site
+        run: npm run build
+        env:
+          PAGES_BASE_PATH: /tarjan
