@@ -31,3 +31,9 @@ updates:
         patterns: ["*"]
     commit-message:
       prefix: "build(deps)"
+    ignore:
+      # TypeScript 7 is the native-compiler rewrite and breaks `next build`
+      # (verified: the site builds on 5.x, fails on 7.0.2). Migrate to it
+      # deliberately, not via a routine deps bump.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
