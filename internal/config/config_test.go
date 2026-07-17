@@ -295,7 +295,7 @@ func toolNames(tools []Tool) []string {
 
 func TestRequiredToolsScopesToSelection(t *testing.T) {
 	c := &Config{Requires: []Tool{
-		{Name: "git"},                          // baseline: always required
+		{Name: "git"}, // baseline: always required
 		{Name: "docker", Services: []string{"postgres"}},
 		{Name: "dotnet", Services: []string{"service"}},
 		{Name: "node", Services: []string{"studio", "studio-cloud"}},
