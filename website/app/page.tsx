@@ -32,18 +32,21 @@ function Nav() {
   return (
     <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
       <div className="flex items-center gap-2 font-mono text-lg font-bold tracking-tight">
-        <span className="text-indigo-400">›</span> tarjan
+        <span className="text-indigo-500 dark:text-indigo-400">›</span> tarjan
       </div>
-      <nav className="flex items-center gap-6 text-sm text-white/70">
-        <a href="#features" className="hover:text-white">
+      <nav className="flex items-center gap-6 text-sm text-neutral-600 dark:text-white/70">
+        <a
+          href="#features"
+          className="hover:text-neutral-950 dark:hover:text-white"
+        >
           Features
         </a>
-        <Link href="/docs" className="hover:text-white">
+        <Link href="/docs" className="hover:text-neutral-950 dark:hover:text-white">
           Docs
         </Link>
         <a
           href={GITHUB}
-          className="rounded-lg border border-white/15 px-3 py-1.5 font-medium text-white hover:bg-white/5"
+          className="rounded-lg border border-neutral-950/15 px-3 py-1.5 font-medium text-neutral-950 hover:bg-neutral-950/5 dark:border-white/15 dark:text-white dark:hover:bg-white/5"
         >
           GitHub ↗
         </a>
@@ -55,28 +58,29 @@ function Nav() {
 function Hero() {
   return (
     <section className="mx-auto max-w-6xl px-6 pt-16 pb-12 text-center sm:pt-24">
-      <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70">
-        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+      <span className="inline-flex items-center gap-2 rounded-full border border-neutral-950/10 bg-neutral-950/5 px-3 py-1 text-xs text-neutral-600 dark:border-white/10 dark:bg-white/5 dark:text-white/70">
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400" />
         Terraform / Aspire — but for your{" "}
-        <em className="not-italic text-white">local</em> dev environment
+        <em className="not-italic text-neutral-950 dark:text-white">local</em>{" "}
+        dev environment
       </span>
       <h1 className="mx-auto mt-6 max-w-4xl text-balance text-4xl font-bold leading-tight tracking-tight sm:text-6xl">
         Spin up a whole product&apos;s local dev environment in{" "}
-        <span className="bg-gradient-to-r from-indigo-400 to-emerald-300 bg-clip-text text-transparent">
+        <span className="bg-gradient-to-r from-indigo-600 to-emerald-500 bg-clip-text text-transparent dark:from-indigo-400 dark:to-emerald-300">
           one command
         </span>
       </h1>
-      <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg text-white/65">
+      <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg text-neutral-600 dark:text-white/65">
         Clone five repos, start Postgres, install deps, run the API, boot the web
         app and the mobile app, wire up the cloud bits. tarjan turns that checklist
         into{" "}
-        <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-sm">
+        <code className="rounded bg-neutral-950/10 px-1.5 py-0.5 font-mono text-sm dark:bg-white/10">
           tarjan up
         </code>
         .
       </p>
 
-      <div className="mx-auto mt-8 flex max-w-md items-center justify-between rounded-xl border border-white/10 bg-black/40 px-4 py-3 font-mono text-sm">
+      <div className="mx-auto mt-8 flex max-w-md items-center justify-between rounded-xl border border-neutral-950/10 bg-neutral-950 px-4 py-3 font-mono text-sm text-white dark:border-white/10 dark:bg-black/40">
         <span>
           <span className="text-white/40">$</span> tarjan up
         </span>
@@ -86,13 +90,13 @@ function Hero() {
       <div className="mt-8 flex items-center justify-center gap-3">
         <Link
           href="/docs"
-          className="rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-black hover:bg-white/90"
+          className="rounded-lg bg-neutral-950 px-5 py-2.5 text-sm font-semibold text-white hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-white/90"
         >
           Get started
         </Link>
         <a
           href={GITHUB}
-          className="rounded-lg border border-white/15 px-5 py-2.5 text-sm font-semibold hover:bg-white/5"
+          className="rounded-lg border border-neutral-950/15 px-5 py-2.5 text-sm font-semibold hover:bg-neutral-950/5 dark:border-white/15 dark:hover:bg-white/5"
         >
           Star on GitHub
         </a>
@@ -104,12 +108,12 @@ function Hero() {
 function Problem() {
   return (
     <section className="mx-auto max-w-5xl px-6 py-12">
-      <div className="grid gap-6 rounded-2xl border border-white/10 bg-white/[0.02] p-8 md:grid-cols-2">
+      <div className="grid gap-6 rounded-2xl border border-neutral-950/10 bg-neutral-950/[0.02] p-8 md:grid-cols-2 dark:border-white/10 dark:bg-white/[0.02]">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wider text-rose-300/80">
+          <p className="text-sm font-semibold uppercase tracking-wider text-rose-600/90 dark:text-rose-300/80">
             Without tarjan
           </p>
-          <ul className="mt-4 space-y-2 text-sm text-white/60">
+          <ul className="mt-4 space-y-2 text-sm text-neutral-600 dark:text-white/60">
             <li>· clone repo A, B, C, D…</li>
             <li>· install .NET / Node / Docker by hand</li>
             <li>· start the database, run migrations</li>
@@ -119,10 +123,10 @@ function Problem() {
           </ul>
         </div>
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wider text-emerald-300/80">
+          <p className="text-sm font-semibold uppercase tracking-wider text-emerald-600/90 dark:text-emerald-300/80">
             With tarjan
           </p>
-          <pre className="mt-4 overflow-x-auto rounded-lg bg-black/50 p-4 font-mono text-sm text-white/80">
+          <pre className="mt-4 overflow-x-auto rounded-lg bg-neutral-950 p-4 font-mono text-sm text-white/80 dark:bg-black/50">
             {`$ tarjan up
 ✓ tools checked
 ✓ repos cloned → fresh workspace
@@ -190,9 +194,11 @@ function Features() {
 
 function Card({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5 transition hover:border-white/20 hover:bg-white/[0.04]">
+    <div className="rounded-xl border border-neutral-950/10 bg-neutral-950/[0.02] p-5 transition hover:border-neutral-950/20 hover:bg-neutral-950/[0.04] dark:border-white/10 dark:bg-white/[0.02] dark:hover:border-white/20 dark:hover:bg-white/[0.04]">
       <h3 className="font-semibold">{title}</h3>
-      <p className="mt-2 text-sm leading-relaxed text-white/60">{children}</p>
+      <p className="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-white/60">
+        {children}
+      </p>
     </div>
   );
 }
@@ -203,11 +209,11 @@ function ConfigShowcase() {
       <h2 className="text-center text-3xl font-bold tracking-tight">
         One declarative file
       </h2>
-      <p className="mx-auto mt-3 max-w-2xl text-center text-white/60">
+      <p className="mx-auto mt-3 max-w-2xl text-center text-neutral-600 dark:text-white/60">
         Repos to clone, tools to require, services to run — with dependencies,
         health checks and restart policies.
       </p>
-      <pre className="mx-auto mt-8 max-w-3xl overflow-x-auto rounded-2xl border border-white/10 bg-black/50 p-6 font-mono text-[13px] leading-relaxed text-white/80">
+      <pre className="mx-auto mt-8 max-w-3xl overflow-x-auto rounded-2xl border border-neutral-950/10 bg-neutral-950 p-6 font-mono text-[13px] leading-relaxed text-white/80 dark:border-white/10 dark:bg-black/50">
         {`name: acme
 repos:
   - { name: api, url: https://github.com/acme/api.git }
@@ -259,14 +265,18 @@ function Commands() {
       <h2 className="text-center text-3xl font-bold tracking-tight">
         A command for every step of the loop
       </h2>
-      <div className="mt-8 divide-y divide-white/5 overflow-hidden rounded-2xl border border-white/10">
+      <div className="mt-8 divide-y divide-neutral-950/5 overflow-hidden rounded-2xl border border-neutral-950/10 dark:divide-white/5 dark:border-white/10">
         {COMMANDS.map(([cmd, desc]) => (
           <div
             key={cmd}
             className="flex flex-col gap-1 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between"
           >
-            <code className="font-mono text-sm text-emerald-300">{cmd}</code>
-            <span className="text-sm text-white/55">{desc}</span>
+            <code className="font-mono text-sm text-emerald-700 dark:text-emerald-300">
+              {cmd}
+            </code>
+            <span className="text-sm text-neutral-500 dark:text-white/55">
+              {desc}
+            </span>
           </div>
         ))}
       </div>
@@ -280,9 +290,9 @@ function CallToAction() {
       <h2 className="text-3xl font-bold tracking-tight">
         Bring the whole thing up.
       </h2>
-      <p className="mx-auto mt-3 max-w-xl text-white/60">
+      <p className="mx-auto mt-3 max-w-xl text-neutral-600 dark:text-white/60">
         Download a prebuilt binary, point a config at your repos, and run{" "}
-        <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-sm">
+        <code className="rounded bg-neutral-950/10 px-1.5 py-0.5 font-mono text-sm dark:bg-white/10">
           tarjan up
         </code>
         .
@@ -290,13 +300,13 @@ function CallToAction() {
       <div className="mt-7 flex items-center justify-center gap-3">
         <Link
           href="/docs"
-          className="rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-black hover:bg-white/90"
+          className="rounded-lg bg-neutral-950 px-5 py-2.5 text-sm font-semibold text-white hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-white/90"
         >
           Read the docs
         </Link>
         <a
           href={`${GITHUB}/releases/latest`}
-          className="rounded-lg border border-white/15 px-5 py-2.5 text-sm font-semibold hover:bg-white/5"
+          className="rounded-lg border border-neutral-950/15 px-5 py-2.5 text-sm font-semibold hover:bg-neutral-950/5 dark:border-white/15 dark:hover:bg-white/5"
         >
           Download
         </a>
@@ -307,11 +317,14 @@ function CallToAction() {
 
 function Footer() {
   return (
-    <footer className="border-t border-white/10">
-      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-6 py-8 text-sm text-white/45 sm:flex-row">
+    <footer className="border-t border-neutral-950/10 dark:border-white/10">
+      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-6 py-8 text-sm text-neutral-500 dark:text-white/45 sm:flex-row">
         <span className="font-mono">› tarjan</span>
         <span>MIT licensed · built with Go</span>
-        <a href={GITHUB} className="hover:text-white/70">
+        <a
+          href={GITHUB}
+          className="hover:text-neutral-950 dark:hover:text-white/70"
+        >
           github.com/stevenzg/tarjan
         </a>
       </div>
