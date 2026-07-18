@@ -150,18 +150,28 @@ func evaluate(t config.Tool) (path, version string, found, ok bool) {
 		}
 		return "", "", false, false
 	}
-	path, err := exec.LookPath(t.Name)
-	if err != nil {
-		return "", "", false, false
-	}
-	version = probeVersion(t)
-	if t.MinVersion != "" && version != "" {
-		atLeast, comparable := versionAtLeast(version, t.MinVersion)
-		if comparable && !atLeast {
-			return path, version, true, false
+	// An executable on PATH is the common case, and the only one that yields a
+	// version to gate on MinVersion.
+	if path, err := exec.LookPath(t.Name); err == nil {
+		version = probeVersion(t)
+		if t.MinVersion != "" && version != "" {
+			atLeast, comparable := versionAtLeast(version, t.MinVersion)
+			if comparable && !atLeast {
+				return path, version, true, false
+			}
 		}
+		return path, version, true, true
 	}
-	return path, version, true, true
+	// Not on PATH — but a declared system package may still be installed and
+	// satisfy the requirement even though it is not an executable (a shared
+	// library). Ask the package manager. This removes the asymmetry where a
+	// package: could be installed via --install yet never verified, so the tool
+	// was reported unsatisfied forever. No version is available this way, so
+	// MinVersion is not applied.
+	if !t.Package.IsZero() && packageInstalled(t.Package) {
+		return "", "", true, true
+	}
+	return "", "", false, false
 }
 
 // runCheck runs a tool's Check command through the OS shell (so pipes and shell
