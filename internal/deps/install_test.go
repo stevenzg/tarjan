@@ -132,6 +132,100 @@ func TestResolvePackageDetectsManager(t *testing.T) {
 	}
 }
 
+// TestPkgManagerQueryArgv checks each manager's presence query is the right tool
+// and argv (the package name as its own final argument, never shell-spliced),
+// and that the Windows managers declare no query.
+func TestPkgManagerQueryArgv(t *testing.T) {
+	cases := map[string]struct {
+		goos, mgr, pkg, wantBin string
+		wantArgs                []string
+	}{
+		"apt":    {"linux", "apt", "libnspr4", "dpkg", []string{"-s", "libnspr4"}},
+		"dnf":    {"linux", "dnf", "nspr", "rpm", []string{"-q", "nspr"}},
+		"pacman": {"linux", "pacman", "nss", "pacman", []string{"-Q", "nss"}},
+		"apk":    {"linux", "apk", "nss", "apk", []string{"info", "-e", "nss"}},
+		"brew":   {"darwin", "brew", "nss", "brew", []string{"list", "--versions", "nss"}},
+	}
+	for name, c := range cases {
+		var m pkgManager
+		for _, cand := range pkgManagers(c.goos) {
+			if cand.name == c.mgr {
+				m = cand
+			}
+		}
+		if m.name == "" {
+			t.Errorf("%s: manager %q not listed for %s", name, c.mgr, c.goos)
+			continue
+		}
+		bin, args := m.queryArgv(c.pkg)
+		if bin != c.wantBin {
+			t.Errorf("%s: queryArgv bin = %q, want %q", name, bin, c.wantBin)
+		}
+		if strings.Join(args, " ") != strings.Join(c.wantArgs, " ") {
+			t.Errorf("%s: queryArgv args = %v, want %v", name, args, c.wantArgs)
+		}
+	}
+	for _, m := range pkgManagers("windows") {
+		if bin, _ := m.queryArgv("x"); bin != "" {
+			t.Errorf("windows manager %q should declare no query, got %q", m.name, bin)
+		}
+	}
+}
+
+// TestPackageInstalledQueriesManager fabricates apt-get (the manager) and dpkg
+// (its query) on PATH and checks packageInstalled reads the query's exit status
+// — and is conservative when the query tool is absent. Linux-only because the
+// candidate manager list is keyed on the host OS.
+func TestPackageInstalledQueriesManager(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("uses apt/dpkg fakes")
+	}
+	bin := t.TempDir()
+	writeFakeExec(t, filepath.Join(bin, "apt-get")) // manager detected on PATH
+	t.Setenv("PATH", bin)
+	spec := config.NewPackage("", map[string]string{"apt": "libnspr4"})
+
+	writeFakeExecCode(t, filepath.Join(bin, "dpkg"), 0) // installed
+	if !packageInstalled(spec) {
+		t.Fatal("dpkg exit 0 should read as installed")
+	}
+	writeFakeExecCode(t, filepath.Join(bin, "dpkg"), 1) // not installed
+	if packageInstalled(spec) {
+		t.Fatal("dpkg exit 1 should read as not installed")
+	}
+	if err := os.Remove(filepath.Join(bin, "dpkg")); err != nil {
+		t.Fatalf("remove dpkg: %v", err)
+	}
+	if packageInstalled(spec) {
+		t.Fatal("no query tool on PATH should read as not installed (conservative)")
+	}
+}
+
+// TestCheckSatisfiedByInstalledPackage is the end-to-end payoff: a requirement
+// that is not an executable on PATH (a shared library) is satisfied when its
+// declared package is installed, closing the install-but-never-verify gap.
+func TestCheckSatisfiedByInstalledPackage(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("uses apt/dpkg fakes")
+	}
+	bin := t.TempDir()
+	writeFakeExec(t, filepath.Join(bin, "apt-get"))
+	writeFakeExecCode(t, filepath.Join(bin, "dpkg"), 0) // package reports installed
+	t.Setenv("PATH", bin)
+
+	// libnspr4 is not on PATH (it is a library), but its apt package is present.
+	tool := config.Tool{Name: "libnspr4", Package: config.NewPackage("", map[string]string{"apt": "libnspr4"})}
+	if err := Check([]config.Tool{tool}, Options{}); err != nil {
+		t.Fatalf("an installed package should satisfy a non-executable requirement: %v", err)
+	}
+
+	// When the package is not installed, the requirement is unmet.
+	writeFakeExecCode(t, filepath.Join(bin, "dpkg"), 1)
+	if err := Check([]config.Tool{tool}, Options{}); err == nil {
+		t.Fatal("a package that is not installed should leave the requirement unmet")
+	}
+}
+
 // TestDescribeShowsProviderCommand checks the --install-less error names the
 // exact command a provider would run (mise here, which needs no host state).
 func TestDescribeShowsProviderCommand(t *testing.T) {
@@ -282,6 +376,17 @@ func TestInstallWorkdirPinsNoMise(t *testing.T) {
 func writeFakeExec(t *testing.T, path string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatalf("write fake exec: %v", err)
+	}
+}
+
+// writeFakeExecCode writes a fake executable that exits with the given status —
+// used to stand in for a package-manager query (dpkg -s) that reports a package
+// present (0) or absent (non-zero).
+func writeFakeExecCode(t *testing.T, path string, code int) {
+	t.Helper()
+	script := fmt.Sprintf("#!/bin/sh\nexit %d\n", code)
+	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
 		t.Fatalf("write fake exec: %v", err)
 	}
 }

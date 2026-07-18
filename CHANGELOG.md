@@ -17,6 +17,18 @@ development history from before the open-sourcing is not carried over.
   `tarjan up <service>` skips toolchains it won't use. `tarjan doctor
   <service...>` scopes the same way, and the Starlark `tool()` builtin gains a
   `services` argument.
+- Verify requirements that are not executables on `PATH`, closing the gap where
+  a `requires` tool could be *installed* by `--install` yet never *verified*, so
+  it was reported unsatisfied forever. Two ways, most explicit first:
+  - `package:` now doubles as verification. When a tool is not on `PATH`, the
+    host package manager is asked whether the declared package is installed
+    (`dpkg -s`, `rpm -q`, `pacman -Q`, `apk info -e`, `brew list`) — so a shared
+    library declared only for `--install` is now detected as present without a
+    hand-written probe.
+  - `check:` is the general escape hatch: a shell command whose zero exit means
+    "present", for anything the package managers can't express (a font, a
+    kernel module, an OS-gated probe). The Starlark `tool()` builtin gains a
+    `check` argument.
 - Initial public release of tarjan: spin up a complete local development
   environment for a whole product from a single config file
   (`tarjan.yaml` / `tarjan.star`).

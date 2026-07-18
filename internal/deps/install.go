@@ -299,15 +299,22 @@ func isExec(p string) bool {
 
 // --- system package managers ----------------------------------------------
 
-// pkgManager describes how to install a named package with one system package
-// manager. The install command is held as a structured argv (subcommand args,
-// with the package name appended last) rather than a format string, so the
+// pkgManager describes how to install and query a named package with one system
+// package manager. The install command is held as a structured argv (subcommand
+// args, with the package name appended last) rather than a format string, so the
 // package name is never interpreted by a shell.
 type pkgManager struct {
 	name string   // key used in a per-manager package: map (apt/brew/dnf/…)
 	bin  string   // executable probed on PATH to detect the manager
 	sudo bool     // whether the install needs root via sudo
 	args []string // install subcommand args; the package name is appended
+	// queryBin/queryArgs run a "is this package installed?" check that exits 0
+	// when present — the mechanism that lets a package: double as verification
+	// for a dependency PATH cannot see (a shared library). The query is a
+	// separate tool from the installer (apt-get installs, dpkg queries), and
+	// needs no root. Empty queryBin means this manager cannot verify presence.
+	queryBin  string
+	queryArgs []string
 }
 
 // argv returns the executable and argument vector to install pkg — with the
@@ -327,13 +334,26 @@ func (m pkgManager) installCmd(pkg string) string {
 	return bin + " " + strings.Join(args, " ")
 }
 
+// queryArgv returns the executable and argument vector that checks whether pkg
+// is installed (exit 0 = present), or ("", nil) when this manager has no query.
+// The package name is its own final argument, never spliced into a command.
+func (m pkgManager) queryArgv(pkg string) (string, []string) {
+	if m.queryBin == "" {
+		return "", nil
+	}
+	return m.queryBin, append(append([]string{}, m.queryArgs...), pkg)
+}
+
 // pkgManagers lists the supported managers for a GOOS, in detection order — the
 // first one found on PATH wins.
 func pkgManagers(goos string) []pkgManager {
 	switch goos {
 	case "darwin":
-		return []pkgManager{{name: "brew", bin: "brew", args: []string{"install"}}}
+		return []pkgManager{{name: "brew", bin: "brew", args: []string{"install"}, queryBin: "brew", queryArgs: []string{"list", "--versions"}}}
 	case "windows":
+		// winget/choco/scoop install; presence-query is left unset — Windows
+		// binaries ship self-contained, so the library-verification case this
+		// powers does not arise there.
 		return []pkgManager{
 			{name: "winget", bin: "winget", args: []string{"install", "-e", "--id"}},
 			{name: "choco", bin: "choco", args: []string{"install", "-y"}},
@@ -341,12 +361,12 @@ func pkgManagers(goos string) []pkgManager {
 		}
 	default: // linux and other unixes
 		return []pkgManager{
-			{name: "apt", bin: "apt-get", sudo: true, args: []string{"install", "-y"}},
-			{name: "dnf", bin: "dnf", sudo: true, args: []string{"install", "-y"}},
-			{name: "yum", bin: "yum", sudo: true, args: []string{"install", "-y"}},
-			{name: "pacman", bin: "pacman", sudo: true, args: []string{"-S", "--noconfirm"}},
-			{name: "zypper", bin: "zypper", sudo: true, args: []string{"install", "-y"}},
-			{name: "apk", bin: "apk", sudo: true, args: []string{"add"}},
+			{name: "apt", bin: "apt-get", sudo: true, args: []string{"install", "-y"}, queryBin: "dpkg", queryArgs: []string{"-s"}},
+			{name: "dnf", bin: "dnf", sudo: true, args: []string{"install", "-y"}, queryBin: "rpm", queryArgs: []string{"-q"}},
+			{name: "yum", bin: "yum", sudo: true, args: []string{"install", "-y"}, queryBin: "rpm", queryArgs: []string{"-q"}},
+			{name: "pacman", bin: "pacman", sudo: true, args: []string{"-S", "--noconfirm"}, queryBin: "pacman", queryArgs: []string{"-Q"}},
+			{name: "zypper", bin: "zypper", sudo: true, args: []string{"install", "-y"}, queryBin: "rpm", queryArgs: []string{"-q"}},
+			{name: "apk", bin: "apk", sudo: true, args: []string{"add"}, queryBin: "apk", queryArgs: []string{"info", "-e"}},
 		}
 	}
 }
@@ -365,4 +385,27 @@ func resolvePackage(spec config.PackageSpec) (*pkgManager, string) {
 		}
 	}
 	return nil, ""
+}
+
+// packageInstalled reports whether the package a spec names is installed
+// according to the host package manager — the check that lets a package: verify
+// a dependency PATH cannot see. It resolves the same manager `--install` would
+// use, then runs that manager's presence query. It is conservative: a manager
+// with no query, no query tool on PATH, or a non-zero exit all read as "not
+// present", so a false positive never masks a genuinely missing dependency.
+func packageInstalled(spec config.PackageSpec) bool {
+	mgr, pkg := resolvePackage(spec)
+	if mgr == nil {
+		return false
+	}
+	bin, args := mgr.queryArgv(pkg)
+	if bin == "" {
+		return false
+	}
+	if _, err := exec.LookPath(bin); err != nil {
+		return false
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
+	defer cancel()
+	return exec.CommandContext(ctx, bin, args...).Run() == nil
 }

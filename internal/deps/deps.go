@@ -141,25 +141,58 @@ func Check(tools []config.Tool, opts Options) error {
 // evaluate probes a tool, returning its path, detected version, whether it was
 // found on PATH, and whether it is present and meets any minimum version.
 func evaluate(t config.Tool) (path, version string, found, ok bool) {
-	path, err := exec.LookPath(t.Name)
-	if err != nil {
+	// A Check command replaces PATH lookup: it verifies things PATH cannot see
+	// (a shared library, a font). Exit 0 means present; there is no path or
+	// version to report, and MinVersion does not apply.
+	if t.Check != "" {
+		if runCheck(t.Check) {
+			return "", "", true, true
+		}
 		return "", "", false, false
 	}
-	version = probeVersion(t)
-	if t.MinVersion != "" && version != "" {
-		atLeast, comparable := versionAtLeast(version, t.MinVersion)
-		if comparable && !atLeast {
-			return path, version, true, false
+	// An executable on PATH is the common case, and the only one that yields a
+	// version to gate on MinVersion.
+	if path, err := exec.LookPath(t.Name); err == nil {
+		version = probeVersion(t)
+		if t.MinVersion != "" && version != "" {
+			atLeast, comparable := versionAtLeast(version, t.MinVersion)
+			if comparable && !atLeast {
+				return path, version, true, false
+			}
 		}
+		return path, version, true, true
 	}
-	return path, version, true, true
+	// Not on PATH — but a declared system package may still be installed and
+	// satisfy the requirement even though it is not an executable (a shared
+	// library). Ask the package manager. This removes the asymmetry where a
+	// package: could be installed via --install yet never verified, so the tool
+	// was reported unsatisfied forever. No version is available this way, so
+	// MinVersion is not applied.
+	if !t.Package.IsZero() && packageInstalled(t.Package) {
+		return "", "", true, true
+	}
+	return "", "", false, false
+}
+
+// runCheck runs a tool's Check command through the OS shell (so pipes and shell
+// syntax work) with the same bounded timeout as a version probe, and reports
+// whether it exited 0 — the signal that the dependency is present.
+func runCheck(command string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
+	defer cancel()
+	name, args := shellx.Command(command)
+	return exec.CommandContext(ctx, name, args...).Run() == nil
 }
 
 func report(t config.Tool, path, version string) {
-	if version != "" {
+	switch {
+	case version != "" && path != "":
 		ui.Step("%s %s (%s)", t.Name, version, path)
-	} else {
+	case path != "":
 		ui.Step("%s (%s)", t.Name, path)
+	default:
+		// A Check-verified tool has no path or version to show.
+		ui.Step("%s", t.Name)
 	}
 }
 
