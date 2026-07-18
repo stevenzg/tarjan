@@ -54,6 +54,31 @@ func TestVersionAtLeast(t *testing.T) {
 	}
 }
 
+func TestCheckVerifiesWithoutPath(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses a POSIX check command")
+	}
+	// A tool whose name is not on PATH is still satisfied when its Check exits 0,
+	// so a requirement can be something PATH cannot see (e.g. a shared library).
+	present := config.Tool{Name: "some-lib", Check: "true"}
+	if err := Check([]config.Tool{present}, Options{}); err != nil {
+		t.Fatalf("check exiting 0 should satisfy the tool: %v", err)
+	}
+
+	// A failing Check marks the tool missing — and without --install that is an
+	// error for a required tool.
+	absent := config.Tool{Name: "some-lib", Check: "false"}
+	if err := Check([]config.Tool{absent}, Options{}); err == nil {
+		t.Fatal("check exiting non-zero should fail a required tool")
+	}
+
+	// The same failing tool only warns when optional.
+	absentOpt := config.Tool{Name: "some-lib", Check: "false", Optional: true}
+	if err := Check([]config.Tool{absentOpt}, Options{}); err != nil {
+		t.Fatalf("optional tool with a failing check should not error: %v", err)
+	}
+}
+
 func TestAutoInstall(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("uses a POSIX install script")

@@ -17,6 +17,12 @@ development history from before the open-sourcing is not carried over.
   `tarjan up <service>` skips toolchains it won't use. `tarjan doctor
   <service...>` scopes the same way, and the Starlark `tool()` builtin gains a
   `services` argument.
+- Command-verified requirements: a `requires` tool may set `check:` — a shell
+  command whose zero exit means "present" — instead of being detected as an
+  executable on `PATH`. This lets a requirement be something `PATH` cannot see,
+  such as a shared library (`check: "ldconfig -p | grep -q libnspr4.so"`);
+  pair it with a `package:`/`install:` provider so `--install` can supply it.
+  The Starlark `tool()` builtin gains a `check` argument.
 - Initial public release of tarjan: spin up a complete local development
   environment for a whole product from a single config file
   (`tarjan.yaml` / `tarjan.star`).

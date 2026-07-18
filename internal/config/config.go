@@ -153,6 +153,15 @@ type Tool struct {
 	Package PackageSpec `yaml:"package"`
 	// Optional tools only produce a warning when missing, not an error.
 	Optional bool `yaml:"optional"`
+	// Check overrides how the tool's presence is verified. Normally a tool is
+	// detected by looking for its Name as an executable on PATH; when Check is
+	// set, this shell command is run instead and a zero exit means "present".
+	// That lets a requirement be something PATH cannot see — a shared library, a
+	// font, a kernel module — e.g. a library probed with
+	// `check: "ldconfig -p | grep -q libnspr4.so"`. MinVersion is not applied to
+	// a Check-verified tool (there is no version string to parse); pair Check
+	// with a package:/install: provider so --install can still install it.
+	Check string `yaml:"check"`
 	// Services scopes the tool to the services that actually need it: with none
 	// it is a baseline tool, always checked; with one or more it is checked only
 	// when at least one of those services is in the run's selection. This is what
