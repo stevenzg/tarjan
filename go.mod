@@ -1,13 +1,13 @@
 module github.com/stevenzg/tarjan
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/spf13/cobra v1.10.2
 	go.starlark.net v0.0.0-20260613233743-8ba36ccb83fb
-	golang.org/x/sys v0.47.0
+	golang.org/x/sys v0.48.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
