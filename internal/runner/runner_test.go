@@ -389,6 +389,56 @@ func TestManualRestart(t *testing.T) {
 	}
 }
 
+// TestRestartRecordsNewPID verifies the state file names the process a restart
+// started, so `tarjan down` from another terminal stops it rather than the one
+// the restart already replaced.
+func TestRestartRecordsNewPID(t *testing.T) {
+	ws := t.TempDir()
+	cfg := &config.Config{Name: "t", Services: []config.Service{{Name: "svc", Command: "sleep 30"}}}
+
+	r := New(cfg, ws)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if err := r.Up(ctx); err != nil {
+		t.Fatalf("Up: %v", err)
+	}
+	defer r.Shutdown()
+
+	recordedPID := func() int {
+		st, err := state.Load(ws)
+		if err != nil {
+			return 0
+		}
+		for _, s := range st.Services {
+			if s.Name == "svc" {
+				return s.PID
+			}
+		}
+		return 0
+	}
+	livePID := func() int {
+		s := r.supervisor("svc")
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		return s.cmd.Process.Pid
+	}
+
+	first := livePID()
+	if got := recordedPID(); got != first {
+		t.Fatalf("recorded PID before restart = %d, want %d", got, first)
+	}
+	if err := r.RestartService("svc"); err != nil {
+		t.Fatalf("RestartService: %v", err)
+	}
+	if !eventually(5*time.Second, func() bool { return livePID() != first }) {
+		t.Fatal("service did not restart")
+	}
+	second := livePID()
+	if !eventually(5*time.Second, func() bool { return recordedPID() == second }) {
+		t.Fatalf("recorded PID after restart = %d, want the restarted process %d", recordedPID(), second)
+	}
+}
+
 func eventually(d time.Duration, fn func() bool) bool {
 	deadline := time.Now().Add(d)
 	for time.Now().Before(deadline) {

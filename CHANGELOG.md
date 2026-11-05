@@ -44,3 +44,11 @@ development history from before the open-sourcing is not carried over.
     `pull`, `doctor`, `validate`, `workspace`, `down`, `upgrade`.
   - Cross-platform installers (`install.sh` / `install.ps1`) with mandatory
     checksum verification, plus in-place self-update via `tarjan upgrade`.
+
+### Fixed
+
+- `tarjan down` from another terminal stops a service that was restarted
+  (`tarjan restart`, a watch, or its restart policy). The state file recorded
+  only the first process of each service, so `down` signalled the process the
+  restart had replaced, left the new one running, and `tarjan up` kept waiting
+  for it. The state file now records each new process.
