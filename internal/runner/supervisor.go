@@ -188,7 +188,7 @@ func (s *supervisor) waitForDeps(ctx context.Context) error {
 // the context is cancelled, the service is stopped, or restarts are exhausted.
 func (s *supervisor) runLoop(ctx context.Context) {
 	restarts := 0
-	for {
+	for started := false; ; started = true {
 		if ctx.Err() != nil || s.stopped.Load() {
 			return
 		}
@@ -202,6 +202,11 @@ func (s *supervisor) runLoop(ctx context.Context) {
 			continue
 		}
 		startedAt := time.Now()
+		// Up records the first process of every service. A restart replaces it,
+		// so record the new one for `tarjan down` and `tarjan status`.
+		if started {
+			s.runner.saveState()
+		}
 
 		// Probe health in the background; mark ready (and satisfy Up) on success.
 		hctx, hcancel := context.WithCancel(ctx)
